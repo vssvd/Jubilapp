@@ -6,6 +6,9 @@ from firebase_admin import auth as fb_auth
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from app.security import verify_firebase_token
 from app.routers import interests, preparation
+from app.database import Base, engine
+# Importa modelos para registrar las tablas en el metadata
+from app import models_interests  # noqa: F401
 
 app = FastAPI(title="JubilApp API", version="0.1.0")
 
@@ -17,6 +20,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+def init_tables():
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception:
+        # evitar que un fallo menor tumbe la app en dev
+        pass
 
 @app.get("/health")
 def health():

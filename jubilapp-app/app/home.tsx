@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { theme } from "../src/lib/theme";
+import { logout } from "../src/api/auth";
 
 export default function Home() {
   const router = useRouter();
@@ -16,6 +17,13 @@ export default function Home() {
         onPress={() => router.replace("/interests")}
       >
         <Text style={[styles.btnText, { color: "white" }]}>Empezar cuestionario</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.btn, { backgroundColor: "#EF4444" }]}
+        onPress={async () => { await logout(); router.replace("/login"); }}
+      >
+        <Text style={[styles.btnText, { color: "white" }]}>Cerrar sesión</Text>
       </TouchableOpacity>
     </View>
   );

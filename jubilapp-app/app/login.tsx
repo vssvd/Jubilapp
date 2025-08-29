@@ -10,6 +10,26 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const mapAuthError = (err: any): string => {
+    const raw = String(err?.message || "");
+    const code: string = err?.code || (raw.match(/auth\/[a-z0-9-]+/i)?.[0] ?? "");
+    switch (code) {
+      case "auth/invalid-email":
+        return "El correo tiene un formato inválido.";
+      case "auth/user-not-found":
+        return "El usuario no existe.";
+      case "auth/wrong-password":
+      case "auth/invalid-credential":
+        return "Contraseña incorrecta.";
+      case "auth/too-many-requests":
+        return "Demasiados intentos. Intenta más tarde.";
+      case "auth/network-request-failed":
+        return "Sin conexión. Revisa tu internet.";
+      default:
+        return raw || "No se pudo iniciar sesión";
+    }
+  };
+
   const onSubmit = async () => {
     // validación básica
     if (!email.trim() || !password.trim()) {
@@ -22,7 +42,7 @@ export default function Login() {
       // Redirige a tu pantalla principal (ajusta ruta)
       router.replace("/home"); // crea /app/home.tsx o cambia por "/"
     } catch (e: any) {
-      Alert.alert("No se pudo iniciar sesión", e.message ?? "Error desconocido");
+      Alert.alert("No se pudo iniciar sesión", mapAuthError(e));
     } finally {
       setLoading(false);
     }
@@ -51,7 +71,14 @@ export default function Login() {
       />
 
       <TouchableOpacity style={styles.btn} onPress={onSubmit} disabled={loading}>
-        {loading ? <ActivityIndicator /> : <Text style={styles.btnText}>Entrar</Text>}
+        {loading ? (
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <ActivityIndicator color="#fff" />
+            <Text style={[styles.btnText, { marginLeft: 8 }]}>Ingresando…</Text>
+          </View>
+        ) : (
+          <Text style={styles.btnText}>Entrar</Text>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push("/register")} style={styles.linkBtn}>

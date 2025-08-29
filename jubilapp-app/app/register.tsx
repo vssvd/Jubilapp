@@ -21,9 +21,36 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const mapAuthError = (err: any): string => {
+    const raw = String(err?.message || "");
+    const code: string = err?.code || (raw.match(/auth\/[a-z0-9-]+/i)?.[0] ?? "");
+    switch (code) {
+      case "auth/email-already-in-use":
+        return "El email ya está registrado.";
+      case "auth/invalid-email":
+        return "El correo tiene un formato inválido.";
+      case "auth/weak-password":
+        return "La contraseña es muy débil.";
+      case "auth/network-request-failed":
+        return "Sin conexión. Revisa tu internet.";
+      default:
+        // Si viene del backend, respeta su mensaje (e.g., 409)
+        return raw || "No se pudo registrar";
+    }
+  };
+
   const onSubmit = async () => {
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
     if (!name.trim() || !email.trim() || !password.trim()) {
       Alert.alert("Campos requeridos", "Completa nombre, correo y contraseña.");
+      return;
+    }
+    if (!emailRe.test(email.trim())) {
+      Alert.alert("Correo inválido", "Revisa el formato del correo.");
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert("Contraseña débil", "Debe tener al menos 6 caracteres.");
       return;
     }
 
@@ -43,7 +70,7 @@ export default function Register() {
       // 3. Redirigir a la Home (el cliente ya añadirá el token en requests)
       router.replace("/home");
     } catch (e: any) {
-      Alert.alert("Ups", e.message || "Error al registrar");
+      Alert.alert("Ups", mapAuthError(e));
     } finally {
       setLoading(false);
     }
@@ -81,12 +108,15 @@ export default function Register() {
       />
 
       <TouchableOpacity
-        style={[styles.button, loading && { opacity: 0.6 }]}
+        style={[styles.button, loading && { opacity: 0.7 }]}
         onPress={onSubmit}
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <ActivityIndicator color="#fff" />
+            <Text style={[styles.buttonText, { marginLeft: 8 }]}>Creando cuenta…</Text>
+          </View>
         ) : (
           <Text style={styles.buttonText}>Registrarse</Text>
         )}
