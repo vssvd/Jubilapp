@@ -1,4 +1,3 @@
-// src/api/onboarding.ts
 import { fetchMyInterests } from "./interests";
 import { fetchPreparation } from "./preparation";
 

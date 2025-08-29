@@ -1,4 +1,3 @@
-// src/api/preparation.ts
 import { authHeader, API_BASE } from "./client";
 
 export type PreparationLevel = "planificado" | "intermedio" | "desorientado";

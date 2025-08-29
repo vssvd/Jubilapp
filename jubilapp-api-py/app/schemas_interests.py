@@ -1,19 +1,18 @@
 from typing import List, Optional
 from pydantic import BaseModel
 
-class Interest(BaseModel):
-    id: str
+class InterestOut(BaseModel):
+    id: int
     name: str
     category: Optional[str] = None
+    class Config:
+        from_attributes = True  # Pydantic v2
 
-# <- ESTE nombre es el que pide interests.py
-class InterestOut(Interest):
-    pass
-
-# Para guardar intereses del usuario (recibe IDs de intereses)
 class UserInterestsIn(BaseModel):
-    interest_ids: List[str]
+    interest_ids: List[int]
 
-# Para devolver al cliente la lista con objetos completos
 class UserInterestsOut(BaseModel):
     interests: List[InterestOut]
+
+class UserInterestsByNamesIn(BaseModel):
+    interest_names: List[str]

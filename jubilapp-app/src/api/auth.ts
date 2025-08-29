@@ -17,7 +17,7 @@ export interface RegisterResponse {
   uid: string;
   email: string;
   full_name: string;
-  token: string; // ⚠️ cambia según lo que tu backend devuelva
+  token: string;
 }
 
 export interface LoginUserResponse {

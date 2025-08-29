@@ -1,15 +1,13 @@
 import "react-native-get-random-values";
 import "../src/firebaseConfig";
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-
-import { useColorScheme } from "@/hooks/useColorScheme";
+import { theme } from "../src/lib/theme";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
@@ -17,12 +15,25 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: true }}>
-        {/* Deja que Expo Router descubra tus rutas (index, login, register, home, preparation, interests) */}
-        <Stack.Screen name="+not-found" />
+    <ThemeProvider value={DefaultTheme}>
+      <Stack
+        screenOptions={{
+          headerShown: true,
+          headerStyle: { backgroundColor: theme.bg },
+          headerTintColor: theme.text,
+          headerTitleStyle: { color: theme.text, fontWeight: "800" },
+        }}
+      >
+        {/* Títulos agradables y consistentes */}
+        <Stack.Screen name="index" options={{ title: "JubilApp" }} />
+        <Stack.Screen name="login" options={{ title: "🔐 Iniciar sesión" }} />
+        <Stack.Screen name="register" options={{ title: "✍️ Crear cuenta" }} />
+        <Stack.Screen name="home" options={{ title: "🎉 Bienvenida" }} />
+        <Stack.Screen name="interests" options={{ title: "📝 Intereses" }} />
+        <Stack.Screen name="preparation" options={{ title: "🎯 Preparación" }} />
+        <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </ThemeProvider>
   );
 }

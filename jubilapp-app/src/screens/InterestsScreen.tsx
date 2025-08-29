@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from "react-native";
 import { theme } from "../lib/theme";
-import { fetchCatalog, fetchMyInterests, saveMyInterests } from "../api/interests";
+import { fetchCatalog, fetchMyInterests, saveMyInterests, saveMyInterestsByNames } from "../api/interests";
 import { useRouter } from "expo-router";
 
 type Item = { id: number | null; name: string; category: string; selected: boolean };
@@ -59,6 +59,17 @@ const QUESTIONNAIRE: { category: string; items: string[] }[] = [
   ]},
 ];
 
+// Etiqueta con emoji por categoría (solo visual)
+const categoryWithEmoji = (cat: string): string => ({
+  "Creatividad y Arte": "🎨 Creatividad y Arte",
+  "Deporte y Bienestar": "🧘‍♀️ Deporte y Bienestar",
+  "Aprendizaje y Desarrollo Personal": "🎓 Aprendizaje y Desarrollo Personal",
+  "Social y Comunitario": "🤝 Social y Comunitario",
+  "Salud y Cuidado Personal": "🩺 Salud y Cuidado Personal",
+  "Ocio y Cultura": "🎭 Ocio y Cultura",
+  "Tecnología y Digital": "💻 Tecnología y Digital",
+}[cat] || cat);
+
 export default function InterestsScreen() {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
@@ -68,7 +79,19 @@ export default function InterestsScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [catalog, mine] = await Promise.all([fetchCatalog(), fetchMyInterests()]);
+        // Carga catálogo primero; si falla, mostramos cuestionario estático sin IDs
+        let catalog: { id: number; name: string; category?: string | null }[] = [];
+        let mine: { id: number; name: string; category?: string | null }[] = [];
+        try {
+          catalog = await fetchCatalog();
+        } catch {
+          catalog = [];
+        }
+        try {
+          mine = await fetchMyInterests();
+        } catch {
+          mine = [];
+        }
 
         // Utilidades de normalización y similitud ligera
         const normalize = (s: string) =>
@@ -108,7 +131,12 @@ export default function InterestsScreen() {
               best = { id: v.id, category: v.category };
             }
           }
-          return bestScore >= 0.6 ? best : null; // umbral de similitud
+          // si hay contención fuerte de texto, acepta
+          const contains = normalize(label).includes(normalize(best?.category ? '' : (byName.get(n)?.raw || ''))) ? 0 : 0; // noop para types
+          const sA = normalize(label);
+          let sB = '';
+          for (const [, v] of byName) { sB = normalize(v.raw); if (sA.includes(sB) || sB.includes(sA)) { best = { id: v.id, category: v.category }; bestScore = 1; break; } }
+          return bestScore >= 0.4 ? best : null; // umbral más permisivo
         };
 
         const normalizedList: Item[] = [];
@@ -124,9 +152,10 @@ export default function InterestsScreen() {
             });
           }
         }
+        // Si no hay catálogo, igualmente mostramos el cuestionario (deshabilitado para guardar)
         setItems(normalizedList);
       } catch (e: any) {
-        Alert.alert("Error", e?.message ?? "No se pudo cargar");
+        Alert.alert("Error", e?.message ?? "No se pudo cargar el cuestionario");
       } finally {
         setLoading(false);
       }
@@ -134,27 +163,33 @@ export default function InterestsScreen() {
   }, []);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, Item[]>();
-    items.forEach((it) => {
+    const map = new Map<string, number[]>();
+    items.forEach((it, idx) => {
       if (!map.has(it.category)) map.set(it.category, []);
-      map.get(it.category)!.push(it);
+      map.get(it.category)!.push(idx);
     });
     return Array.from(map.entries());
   }, [items]);
 
   const toggle = (idx: number) =>
-    setItems((prev) => prev.map((r, i) => (i === idx && r.id !== null ? { ...r, selected: !r.selected } : r)));
+    setItems((prev) => prev.map((r, i) => (i === idx ? { ...r, selected: !r.selected } : r)));
 
   const selectedIds = useMemo(() => items.filter((r) => r.selected && r.id != null).map((r) => r.id!) , [items]);
 
   const onSave = async () => {
-    if (selectedIds.length === 0) {
+    const anySelected = items.some((i) => i.selected);
+    if (!anySelected) {
       Alert.alert("Selecciona al menos uno", "Debes completar el cuestionario para continuar.");
       return;
     }
+    const selectedNames = items.filter((i) => i.selected).map((i) => i.name);
     setSaving(true);
     try {
-      await saveMyInterests(selectedIds);
+      if (selectedIds.length > 0) {
+        await saveMyInterests(selectedIds);
+      } else {
+        await saveMyInterestsByNames(selectedNames);
+      }
       router.replace("/preparation"); // siguiente paso obligatorio
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "No se pudo guardar");
@@ -172,35 +207,35 @@ export default function InterestsScreen() {
   }
 
   return (
-    <View style={{ flex: 1, padding: 16, backgroundColor: theme.bg }}>
-      <Text style={{ fontSize: 22, fontWeight: "800", marginBottom: 8, color: theme.text }}>📝 Cuestionario de Intereses</Text>
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
+        <Text style={{ fontSize: 22, fontWeight: "800", marginBottom: 8, color: theme.text }}>📝 Cuestionario de Intereses</Text>
 
-      {grouped.map(([cat, list]) => (
-        <View key={cat} style={{ marginBottom: 16 }}>
-          <Text style={{ fontWeight: "700", marginBottom: 8, color: theme.text }}>{cat}</Text>
-          {list.map((it, i) => {
-            const idx = items.indexOf(it);
-            const disabled = it.id == null;
-            return (
-              <TouchableOpacity
-                key={`${cat}-${i}`}
-                onPress={() => !disabled && toggle(idx)}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: it.selected ? theme.primary : "#e5e7eb",
-                  backgroundColor: it.selected ? "#eefbf9" : "white",
-                  marginBottom: 8,
-                  opacity: disabled ? 0.5 : 1,
-                }}
-              >
-                <Text style={{ fontSize: 16, color: theme.text }}>{(it.selected ? "☑ " : "☐ ") + it.name}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      ))}
+        {grouped.map(([cat, idxs]) => (
+          <View key={cat} style={{ marginBottom: 16 }}>
+            <Text style={{ fontWeight: "700", marginBottom: 8, color: theme.text }}>{categoryWithEmoji(cat)}</Text>
+            {idxs.map((idx) => {
+              const it = items[idx];
+              return (
+                <TouchableOpacity
+                  key={`${cat}-${idx}`}
+                  onPress={() => toggle(idx)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: it.selected ? theme.primary : "#e5e7eb",
+                    backgroundColor: it.selected ? "#eefbf9" : "white",
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text style={{ fontSize: 16, color: theme.text }}>{(it.selected ? "✅ " : "⬜️ ") + it.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+      </ScrollView>
 
       <TouchableOpacity
         onPress={onSave}
@@ -211,6 +246,8 @@ export default function InterestsScreen() {
           borderRadius: 14,
           alignItems: "center",
           opacity: saving ? 0.7 : 1,
+          marginHorizontal: 16,
+          marginBottom: 16,
         }}
       >
         <Text style={{ color: "#fff", fontWeight: "800" }}>

@@ -1,4 +1,3 @@
-// src/screens/RegisterScreen.tsx
 import React from "react";
 import { ScrollView, View, Text, StyleSheet, Alert } from "react-native";
 import { useForm, Controller } from "react-hook-form";

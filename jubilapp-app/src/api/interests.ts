@@ -18,3 +18,11 @@ export const saveMyInterests = async (ids: number[]): Promise<Interest[]> => {
   });
   return data.interests;
 };
+
+export const saveMyInterestsByNames = async (names: string[]): Promise<Interest[]> => {
+  const data = await request<{ interests: Interest[] }>("/api/interests/me/by-names", {
+    method: "PUT",
+    body: { interest_names: names },
+  });
+  return data.interests;
+};

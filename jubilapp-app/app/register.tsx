@@ -56,6 +56,7 @@ export default function Register() {
       <TextInput
         style={styles.input}
         placeholder="Nombre completo"
+        placeholderTextColor={theme.muted}
         value={name}
         onChangeText={setName}
       />
@@ -63,6 +64,7 @@ export default function Register() {
       <TextInput
         style={styles.input}
         placeholder="Correo electrónico"
+        placeholderTextColor={theme.muted}
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
@@ -72,6 +74,7 @@ export default function Register() {
       <TextInput
         style={styles.input}
         placeholder="Contraseña"
+        placeholderTextColor={theme.muted}
         secureTextEntry
         value={password}
         onChangeText={setPassword}

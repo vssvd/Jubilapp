@@ -1,4 +1,3 @@
-# app/security.py
 from passlib.context import CryptContext
 from fastapi import Header, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -30,7 +29,7 @@ def verify_firebase_token(
             detail="Token inválido o expirado",
         )
 
-# ⬇️ NUEVO: obtiene el usuario actual de la BD usando el email del token de Firebase.
+# obtiene el usuario actual de la BD usando el email del token de Firebase.
 # Si no existe, lo crea (auto-provisioning) para que HU001/HU002 funcionen con Firebase Auth.
 def get_current_user(
     decoded: dict = Depends(verify_firebase_token),
@@ -46,7 +45,7 @@ def get_current_user(
         # Auto-provisión (puedes desactivarlo si prefieres fallar)
         user = User(
             email=email,
-            password_hash="firebase",  # marcador; no se usa para login con Firebase
+            password_hash="firebase",  
             full_name=decoded.get("name"),
         )
         db.add(user)

@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 # Reutiliza tu User existente (no lo repito aquí)
-# from app.models import User  # si lo necesitas en otros lados
+# from app.models import User 
 
 class Interest(Base):
     __tablename__ = "interests"
@@ -19,5 +19,5 @@ class UserInterest(Base):
     __table_args__ = (UniqueConstraint("user_id", "interest_id", name="uix_user_interest"),)
 
     # opcional: relaciones (no estrictamente necesarias)
-    user = relationship("User", backref="interests")        # usa tu clase User
+    user = relationship("User", backref="interests")       
     interest = relationship("Interest")

@@ -1,4 +1,3 @@
-// src/firebaseConfig.ts
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { Platform } from "react-native";
