@@ -36,7 +36,7 @@ export default function PreparationLevelScreen() {
     try {
       await savePreparation(selected);
       Alert.alert("Listo", "Tu nivel fue guardado.", [
-        { text: "OK", onPress: () => router.back() },
+        { text: "Ir al inicio", onPress: () => router.replace("/home") },
       ]);
     } catch {
       Alert.alert("Error", "No se pudo guardar. Intenta nuevamente.");

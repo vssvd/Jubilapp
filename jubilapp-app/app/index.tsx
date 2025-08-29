@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "rea
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../src/firebaseConfig";               // <-- usa la instancia
-import { hasInterests, needsPreparation } from "../src/api/onboarding";
+import { theme } from "../src/lib/theme";
 
 export default function Index() {
   const router = useRouter();
@@ -17,21 +17,8 @@ export default function Index() {
         setChecking(false);
         return;
       }
-      try {
-        if (!(await hasInterests())) {
-          router.replace("/interests");
-          return;
-        }
-        if (await needsPreparation()) {
-          router.replace("/preparation");
-          return;
-        }
-        router.replace("/home");
-      } catch {
-        router.replace("/home");
-      } finally {
-        setChecking(false);
-      }
+      // Siempre muestra Home primero tras iniciar sesión para ver la bienvenida
+      try { router.replace("/home"); } finally { setChecking(false); }
     });
     return () => unsub();
   }, []);
@@ -40,7 +27,7 @@ export default function Index() {
     return (
       <View style={[styles.container, { gap: 12 }]}>
         <ActivityIndicator />
-        <Text style={{ color: "white" }}>Cargando…</Text>
+        <Text style={{ color: theme.text }}>Cargando…</Text>
       </View>
     );
   }
@@ -70,12 +57,12 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#0B0F14" },
-  title: { fontSize: 36, fontWeight: "800", letterSpacing: 1, color: "white", marginBottom: 40 },
+  container: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: theme.bg },
+  title: { fontSize: 36, fontWeight: "800", letterSpacing: 1, color: theme.text, marginBottom: 40 },
   buttons: { width: "100%", gap: 16 },
-  btn: { paddingVertical: 14, borderRadius: 14, alignItems: "center" },
-  primary: { backgroundColor: "#4F46E5" },
-  outline: { borderWidth: 1, borderColor: "#4F46E5", backgroundColor: "transparent" },
-  btnText: { color: "white", fontSize: 16, fontWeight: "700" },
-  outlineText: { color: "#4F46E5" },
+  btn: { paddingVertical: 14, borderRadius: theme.radius, alignItems: "center" },
+  primary: { backgroundColor: theme.primary },
+  outline: { borderWidth: 1, borderColor: theme.primary, backgroundColor: "transparent" },
+  btnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  outlineText: { color: theme.primary },
 });

@@ -1,13 +1,10 @@
+import "react-native-get-random-values";
+import "../src/firebaseConfig";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-import "../src/firebaseConfig";
-
-
-// ⚠️ Importa primero para inicializar Firebase una sola vez
-import "../src/firebaseConfig";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 

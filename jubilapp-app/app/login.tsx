@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from "react-native";
 import { useRouter } from "expo-router";
-import { loginUser } from "../src/api/auth";
-import { saveSession } from "../src/storage/session";
+import { loginWithPassword } from "../src/api/auth";
+import { theme } from "../src/lib/theme";
 
 export default function Login() {
   const router = useRouter();
@@ -18,8 +18,7 @@ export default function Login() {
     }
     try {
       setLoading(true);
-      const res = await loginUser({ email: email.trim(), password });
-      await saveSession(res.access_token);
+      await loginWithPassword(email.trim(), password);
       // Redirige a tu pantalla principal (ajusta ruta)
       router.replace("/home"); // crea /app/home.tsx o cambia por "/"
     } catch (e: any) {
@@ -31,7 +30,7 @@ export default function Login() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Iniciar sesión</Text>
+      <Text style={styles.title}>Iniciar sesión 🔐</Text>
 
       <TextInput
         style={styles.input}
@@ -61,14 +60,14 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0B0F14", padding: 24, justifyContent: "center" },
-  title: { color: "white", fontSize: 28, fontWeight: "800", marginBottom: 24, textAlign: "center" },
+  container: { flex: 1, backgroundColor: theme.bg, padding: 24, justifyContent: "center" },
+  title: { color: theme.text, fontSize: 28, fontWeight: "800", marginBottom: 24, textAlign: "center" },
   input: {
-    backgroundColor: "#111827", color: "white", borderRadius: 12, padding: 14,
-    marginBottom: 12, borderWidth: 1, borderColor: "#1F2937",
+    backgroundColor: "#fff", color: theme.text, borderRadius: 12, padding: 14,
+    marginBottom: 12, borderWidth: 1, borderColor: theme.border,
   },
-  btn: { backgroundColor: "#4F46E5", paddingVertical: 14, borderRadius: 14, alignItems: "center", marginTop: 6 },
-  btnText: { color: "white", fontWeight: "700", fontSize: 16 },
+  btn: { backgroundColor: theme.primary, paddingVertical: 14, borderRadius: 14, alignItems: "center", marginTop: 6 },
+  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   linkBtn: { marginTop: 16, alignItems: "center" },
-  link: { color: "#93C5FD" },
+  link: { color: theme.primary },
 });

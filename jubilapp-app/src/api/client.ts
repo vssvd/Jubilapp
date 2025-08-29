@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { auth } from "../src/firebaseConfig";
+import { auth } from "../firebaseConfig";
 
 export const API_BASE: string =
   (Constants.expoConfig?.extra as any)?.apiBase ||
@@ -8,13 +8,12 @@ export const API_BASE: string =
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-// ID token desde Firebase Web SDK
 async function getFirebaseIdToken(): Promise<string | undefined> {
   try {
-    const { getAuth } = await import("firebase/auth");
-    const user = getAuth().currentUser;
+    const user = auth.currentUser;
     if (!user) return undefined;
-    return await user.getIdToken(true);
+    // Evita refrescar en cada request para rendimiento
+    return await user.getIdToken();
   } catch {
     return undefined;
   }
