@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List, Tuple
-from app.database import get_db
+from typing import List, Tuple, Dict
 from app.schemas_interests import (
     InterestOut,
     UserInterestsIn,
     UserInterestsOut,
     UserInterestsByNamesIn,
 )
-from app.models_interests import Interest, UserInterest
-from app.security import get_current_user
+from app.security import verify_firebase_token
+from app.firebase import db as fs
+from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 
 router = APIRouter(prefix="/interests", tags=["Interests"])
@@ -61,48 +60,102 @@ BASE_CATALOG: List[Tuple[str, str]] = [
     ("Tecnología y Digital", "Apps de finanzas, salud, transporte"),
 ]
 
-def ensure_catalog(db: Session) -> None:
-    """Inserta en la tabla cualquier interés del catálogo base que aún no exista."""
-    existing = {row.name for row in db.query(Interest.name).all()}
-    to_insert = [Interest(name=name, category=cat) for cat, name in BASE_CATALOG if name not in existing]
-    if to_insert:
-        db.bulk_save_objects(to_insert)
-        db.commit()
+def _load_catalog() -> List[Dict]:
+    """Carga el catálogo completo desde Firestore como lista de dicts con keys id,name,category."""
+    docs = list(fs.collection("interests_catalog").stream())
+    out = []
+    for d in docs:
+        data = d.to_dict() or {}
+        # Asegura tipos esperados
+        iid = int(data.get("id") or (d.id if d.id.isdigit() else 0))
+        out.append({
+            "id": iid,
+            "name": data.get("name") or "",
+            "category": data.get("category"),
+        })
+    # Orden estable
+    out.sort(key=lambda r: (r.get("category") or "", r.get("name") or ""))
+    return out
+
+
+def _ensure_catalog_firestore() -> None:
+    """Inserta en Firestore cualquier interés del catálogo base que aún no exista por nombre."""
+    col = fs.collection("interests_catalog")
+    existing = { (doc.to_dict() or {}).get("name") for doc in col.stream() }
+    existing.discard(None)
+
+    # Determina next_id
+    current_ids = []
+    for doc in col.stream():
+        data = doc.to_dict() or {}
+        if "id" in data and isinstance(data["id"], int):
+            current_ids.append(data["id"])
+        elif doc.id.isdigit():
+            current_ids.append(int(doc.id))
+    next_id = (max(current_ids) + 1) if current_ids else 1
+
+    batch = fs.batch()
+    to_add = 0
+    for cat, name in BASE_CATALOG:
+        if name in existing:
+            continue
+        doc_ref = col.document(str(next_id))
+        batch.set(doc_ref, {"id": next_id, "name": name, "category": cat})
+        next_id += 1
+        to_add += 1
+    if to_add:
+        batch.commit()
 
 @router.get("/catalog", response_model=List[InterestOut])
-def get_catalog(db: Session = Depends(get_db)):
-    # Auto-seed: garantiza que el catálogo base está en la base de datos
-    ensure_catalog(db)
-    return db.query(Interest).order_by(Interest.category, Interest.name).all()
+def get_catalog():
+    # Auto-seed en Firestore
+    _ensure_catalog_firestore()
+    return _load_catalog()
 
 @router.get("/me", response_model=UserInterestsOut)
-def get_my_interests(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    q = (db.query(Interest)
-            .join(UserInterest, UserInterest.interest_id == Interest.id)
-            .filter(UserInterest.user_id == current_user.id)
-            .order_by(Interest.category, Interest.name))
-    return {"interests": q.all()}
+def get_my_interests(decoded: dict = Depends(verify_firebase_token)):
+    # Lee IDs desde Firestore y resuelve contra catálogo
+    user_doc = fs.collection("users").document(decoded["uid"]).get()
+    data = user_doc.to_dict() or {}
+    ids = list(sorted(set(int(i) for i in (data.get("interest_ids") or []))))
+    if not ids:
+        return {"interests": []}
+    catalog = {c["id"]: c for c in _load_catalog()}
+    rows = [catalog[i] for i in ids if i in catalog]
+    return {"interests": rows}
 
 @router.put("/me", response_model=UserInterestsOut)
-def set_my_interests(payload: UserInterestsIn, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def set_my_interests(
+    payload: UserInterestsIn,
+    decoded: dict = Depends(verify_firebase_token),
+):
     try:
         # validar ids (sin duplicados)
         ids = sorted(set(int(i) for i in payload.interest_ids))
         if not ids:
-            db.query(UserInterest).filter(UserInterest.user_id == current_user.id).delete()
-            db.commit()
+            fs.collection("users").document(decoded["uid"]).set(
+                {"interest_ids": [], "interests": [], "interests_updated_at": SERVER_TIMESTAMP},
+                merge=True,
+            )
             return {"interests": []}
 
-        count = db.query(Interest).filter(Interest.id.in_(ids)).count()
-        if count != len(ids):
+        # Validar contra catálogo Firestore
+        catalog = {c["id"]: c for c in _load_catalog()}
+        if any(i not in catalog for i in ids):
             raise HTTPException(status_code=400, detail="Algunos intereses no existen")
 
-        # reemplazo idempotente
-        db.query(UserInterest).filter(UserInterest.user_id == current_user.id).delete()
-        db.bulk_save_objects([UserInterest(user_id=current_user.id, interest_id=i) for i in ids])
-        db.commit()
+        rows = [catalog[i] for i in ids]
 
-        rows = db.query(Interest).filter(Interest.id.in_(ids)).all()
+        # Persistir en Firestore
+        fs.collection("users").document(decoded["uid"]).set(
+            {
+                "interest_ids": ids,
+                "interests": [r["name"] for r in rows],
+                "interests_updated_at": SERVER_TIMESTAMP,
+            },
+            merge=True,
+        )
+
         return {"interests": rows}
     except HTTPException:
         raise
@@ -110,36 +163,57 @@ def set_my_interests(payload: UserInterestsIn, db: Session = Depends(get_db), cu
         raise HTTPException(status_code=500, detail=f"Error guardando intereses: {e}")
 
 @router.put("/me/by-names", response_model=UserInterestsOut)
-def set_my_interests_by_names(payload: UserInterestsByNamesIn, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def set_my_interests_by_names(
+    payload: UserInterestsByNamesIn,
+    decoded: dict = Depends(verify_firebase_token),
+):
     try:
         # normaliza y quita duplicados
         names = sorted(set(n.strip() for n in payload.interest_names if n and n.strip()))
         if not names:
-            db.query(UserInterest).filter(UserInterest.user_id == current_user.id).delete()
-            db.commit()
+            fs.collection("users").document(decoded["uid"]).set(
+                {"interest_ids": [], "interests": [], "interests_updated_at": SERVER_TIMESTAMP},
+                merge=True,
+            )
             return {"interests": []}
 
-        # Garantiza catálogo base antes de resolver
-        ensure_catalog(db)
+        # Garantiza catálogo base en Firestore
+        _ensure_catalog_firestore()
 
-        # Resuelve IDs, creando cualquier nombre faltante con categoría nula
-        existing_map = {r.name: r for r in db.query(Interest).filter(Interest.name.in_(names)).all()}
-        to_create = [Interest(name=n) for n in names if n not in existing_map]
-        if to_create:
-            db.bulk_save_objects(to_create)
-            db.commit()
-            # volver a cargar creados
-            created = db.query(Interest).filter(Interest.name.in_([i.name for i in to_create])).all()
-            for r in created:
-                existing_map[r.name] = r
+        # Cargar catálogo actual
+        catalog_list = _load_catalog()
+        by_name = {c["name"]: c for c in catalog_list}
 
-        ids = sorted(set(existing_map[n].id for n in names if n in existing_map))
+        # Crear cualquier nombre faltante con categoría nula
+        missing = [n for n in names if n not in by_name]
+        if missing:
+            col = fs.collection("interests_catalog")
+            # calcular next_id
+            current_ids = [c["id"] for c in catalog_list]
+            next_id = (max(current_ids) + 1) if current_ids else 1
+            batch = fs.batch()
+            for n in missing:
+                doc_ref = col.document(str(next_id))
+                batch.set(doc_ref, {"id": next_id, "name": n, "category": None})
+                next_id += 1
+            batch.commit()
+            # recargar
+            catalog_list = _load_catalog()
+            by_name = {c["name"]: c for c in catalog_list}
 
-        db.query(UserInterest).filter(UserInterest.user_id == current_user.id).delete()
-        db.bulk_save_objects([UserInterest(user_id=current_user.id, interest_id=i) for i in ids])
-        db.commit()
+        ids = sorted({by_name[n]["id"] for n in names if n in by_name})
+        rows = [by_name[n] for n in names if n in by_name]
 
-        rows = db.query(Interest).filter(Interest.id.in_(ids)).all()
+        # Persistir en Firestore
+        fs.collection("users").document(decoded["uid"]).set(
+            {
+                "interest_ids": ids,
+                "interests": [r["name"] for r in rows],
+                "interests_updated_at": SERVER_TIMESTAMP,
+            },
+            merge=True,
+        )
+
         return {"interests": rows}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error guardando intereses por nombre: {e}")
