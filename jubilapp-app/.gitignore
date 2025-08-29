@@ -1,0 +1,59 @@
+# ----- macOS -----
+.DS_Store
+
+# ----- Node/Expo (frontend) -----
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Typescript
+*.tsbuildinfo
+
+# ----- Python (backend) -----
+# Entornos virtuales
+jubilapp-api-py/venv/
+jubilapp-api-py/.venv/
+.venv/
+venv/
+
+# Cachés de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos de testing / builds
+.pytest_cache/
+jubilapp-api-py/*.db
+
+# ----- Credenciales y variables -----
+.env
+.env*.local
+**/*.env
+jubilapp-api-py/credentials/
+
+# ----- Archivos sensibles / llaves -----
+*.pem
+*.p8
+*.p12
+*.key
+*.jks
+*.mobileprovision
+*.orig.*
+
+# ----- Kotlin / Native (si en algún momento compilas) -----
+.kotlin/
+
+# ----- Metro bundler -----
+.metro-health-check*
+
+# ----- Ejemplos / plantillas -----
+app-example
