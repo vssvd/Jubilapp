@@ -1,0 +1,19 @@
+# ---- macOS
+.DS_Store
+
+# ---- Node/Expo (frontend)
+jubilapp-app/node_modules/
+jubilapp-app/.expo/
+jubilapp-app/.expo-shared/
+jubilapp-app/dist/
+
+# ---- Python (backend)
+jubilapp-api-py/.venv/
+jubilapp-api-py/__pycache__/
+jubilapp-api-py/*.pyc
+jubilapp-api-py/.pytest_cache/
+jubilapp-api-py/jubilapp.db
+
+# ---- Credenciales y variables
+**/.env
+jubilapp-api-py/credentials/
