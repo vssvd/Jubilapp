@@ -30,6 +30,7 @@ export default function RootLayout() {
         <Stack.Screen name="register" options={{ title: "✍️ Crear cuenta" }} />
         <Stack.Screen name="home" options={{ title: "🎉 Bienvenida" }} />
         <Stack.Screen name="interests" options={{ title: "📝 Intereses" }} />
+        <Stack.Screen name="profile" options={{ title: "👤 Perfil" }} />
         <Stack.Screen name="preparation" options={{ title: "🎯 Preparación" }} />
         <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
       </Stack>

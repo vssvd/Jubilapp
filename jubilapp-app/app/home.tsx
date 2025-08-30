@@ -13,6 +13,13 @@ export default function Home() {
       <View style={{ height: 24 }} />
 
       <TouchableOpacity
+        style={[styles.btn, { backgroundColor: "#10B981" }]}
+        onPress={() => router.push("/profile")}
+      >
+        <Text style={[styles.btnText, { color: "white" }]}>Editar perfil</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={[styles.btn, { backgroundColor: "#4F46E5" }]}
         onPress={() => router.replace("/interests")}
       >

@@ -39,8 +39,8 @@ export default function Login() {
     try {
       setLoading(true);
       await loginWithPassword(email.trim(), password);
-      // Redirige a tu pantalla principal (ajusta ruta)
-      router.replace("/home"); // crea /app/home.tsx o cambia por "/"
+      // Tras iniciar sesión, ir al Perfil (no en registro)
+      router.replace("/profile");
     } catch (e: any) {
       Alert.alert("No se pudo iniciar sesión", mapAuthError(e));
     } finally {

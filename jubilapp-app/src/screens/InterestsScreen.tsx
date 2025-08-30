@@ -190,7 +190,9 @@ export default function InterestsScreen() {
       } else {
         await saveMyInterestsByNames(selectedNames);
       }
-      router.replace("/preparation"); // siguiente paso obligatorio
+      Alert.alert("Guardado", "Tus intereses se guardaron correctamente ✅", [
+        { text: "Continuar", onPress: () => router.replace("/preparation") },
+      ]);
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "No se pudo guardar");
     } finally {

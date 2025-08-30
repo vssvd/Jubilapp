@@ -134,7 +134,7 @@ def set_my_interests(
         ids = sorted(set(int(i) for i in payload.interest_ids))
         if not ids:
             fs.collection("users").document(decoded["uid"]).set(
-                {"interest_ids": [], "interests": [], "interests_updated_at": SERVER_TIMESTAMP},
+                {"interest_ids": [], "interests": [], "interests_updated_at": SERVER_TIMESTAMP, "updatedAt": SERVER_TIMESTAMP},
                 merge=True,
             )
             return {"interests": []}
@@ -152,6 +152,7 @@ def set_my_interests(
                 "interest_ids": ids,
                 "interests": [r["name"] for r in rows],
                 "interests_updated_at": SERVER_TIMESTAMP,
+                "updatedAt": SERVER_TIMESTAMP,
             },
             merge=True,
         )
@@ -172,7 +173,7 @@ def set_my_interests_by_names(
         names = sorted(set(n.strip() for n in payload.interest_names if n and n.strip()))
         if not names:
             fs.collection("users").document(decoded["uid"]).set(
-                {"interest_ids": [], "interests": [], "interests_updated_at": SERVER_TIMESTAMP},
+                {"interest_ids": [], "interests": [], "interests_updated_at": SERVER_TIMESTAMP, "updatedAt": SERVER_TIMESTAMP},
                 merge=True,
             )
             return {"interests": []}
@@ -210,6 +211,7 @@ def set_my_interests_by_names(
                 "interest_ids": ids,
                 "interests": [r["name"] for r in rows],
                 "interests_updated_at": SERVER_TIMESTAMP,
+                "updatedAt": SERVER_TIMESTAMP,
             },
             merge=True,
         )
