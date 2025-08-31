@@ -35,7 +35,7 @@
     "experiments": { "typedRoutes": true },
 
     "extra": {
-      "apiBase": "http://192.168.1.8:8000",  
+      "apiBase": "auto",
       "apiBaseProd": "https://tu-backend.prod"
     }
   }

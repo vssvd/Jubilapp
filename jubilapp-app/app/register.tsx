@@ -67,8 +67,8 @@ export default function Register() {
       // 2. Hacer login en Firebase Client SDK para obtener ID token
       await signInWithEmailAndPassword(auth, email.trim(), password);
 
-      // 3. Redirigir a la Home (el cliente ya añadirá el token en requests)
-      router.replace("/home");
+      // 3. Ir al onboarding: Intereses → (luego) Preparación → Home
+      router.replace("/interests");
     } catch (e: any) {
       Alert.alert("Ups", mapAuthError(e));
     } finally {
