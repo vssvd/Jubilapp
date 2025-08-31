@@ -30,7 +30,11 @@
         "backgroundColor": "#ffffff"
       }],
       "expo-secure-store",
-      "expo-image-picker"
+      "expo-image-picker",
+      ["expo-location", {
+        "locationAlwaysAndWhenInUsePermission": "Usamos tu ubicación para recomendar actividades cercanas.",
+        "locationWhenInUsePermission": "Usamos tu ubicación para recomendar actividades cercanas."
+      }]
     ],
     "experiments": { "typedRoutes": true },
 

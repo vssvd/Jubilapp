@@ -4,6 +4,7 @@ import { fetchProfile, updateProfile } from "../src/api/profile";
 import { useRouter } from "expo-router";
 import { theme } from "../src/lib/theme";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { auth } from "../src/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Image } from "expo-image";
@@ -16,6 +17,9 @@ export default function ProfileScreen() {
   const [email, setEmail] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
 
   useEffect(() => {
     (async () => {
@@ -25,6 +29,9 @@ export default function ProfileScreen() {
         setEmail(data.email ?? null);
         setDescription((data.description ?? "").toString());
         setPhotoUrl((data.photo_url ?? null) as any);
+        setCity((data.location_city ?? "").toString());
+        setRegion((data.location_region ?? "").toString());
+        setCoords({ lat: (data.location_lat ?? null) as any, lng: (data.location_lng ?? null) as any });
       } catch (e: any) {
         Alert.alert("Sesión", e?.message ?? "Vuelve a iniciar sesión.");
       } finally {
@@ -91,6 +98,42 @@ export default function ProfileScreen() {
     }
   };
 
+  const askAndSetCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permiso de ubicación",
+          "No pudimos obtener tu ubicación. Puedes ingresarla manualmente.",
+        );
+        return;
+      }
+      setSaving(true);
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      setCoords({ lat, lng });
+      let newCity = city, newRegion = region;
+      try {
+        const rr = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+        const a = rr?.[0];
+        if (a) {
+          newCity = (a.city || a.district || a.subregion || a.name || "").toString();
+          newRegion = (a.region || a.subregion || "").toString();
+          setCity(newCity);
+          setRegion(newRegion);
+        }
+      } catch {}
+
+      await updateProfile({ location_lat: lat, location_lng: lng, location_city: newCity || undefined, location_region: newRegion || undefined });
+      Alert.alert("Ubicación actualizada", "Guardamos tu ubicación para recomendarte actividades cercanas ✅");
+    } catch (e: any) {
+      Alert.alert("Ubicación", e?.message ?? "No se pudo obtener la ubicación");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -135,6 +178,44 @@ export default function ProfileScreen() {
         multiline
         numberOfLines={4}
       />
+
+      <Text style={[styles.label, { marginTop: 8 }]}>Ubicación</Text>
+      <Text style={{ color: theme.muted, marginBottom: 6 }}>
+        La ubicación solo se usa para recomendar actividades cercanas.
+      </Text>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <TextInput
+          placeholder="Ciudad / Comuna"
+          placeholderTextColor={theme.muted}
+          value={city}
+          onChangeText={setCity}
+          style={[styles.input, { flex: 1 }]}
+        />
+        <TextInput
+          placeholder="Región (opcional)"
+          placeholderTextColor={theme.muted}
+          value={region}
+          onChangeText={setRegion}
+          style={[styles.input, { flex: 1 }]}
+        />
+      </View>
+      <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+        <TouchableOpacity style={[styles.saveBtn, { flex: 1 }]} onPress={async () => {
+          if (!city.trim()) { Alert.alert("Ubicación", "Ingresa al menos la ciudad/comuna."); return; }
+          setSaving(true);
+          try {
+            await updateProfile({ location_city: city.trim(), location_region: region.trim() || undefined });
+            Alert.alert("Ubicación", "Guardada correctamente ✅");
+          } catch (e: any) {
+            Alert.alert("Error", e?.message || "No se pudo guardar");
+          } finally { setSaving(false); }
+        }} disabled={saving}>
+          <Text style={styles.saveText}>{saving ? "Guardando…" : "Guardar ubicación"}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.secondaryBtn, { flex: 1, alignItems: "center", borderWidth: 1, borderColor: theme.primary, borderRadius: 14 }]} onPress={askAndSetCurrentLocation} disabled={saving}>
+          <Text style={[styles.secondaryText, { fontWeight: "800" }]}>Usar mi ubicación actual</Text>
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity style={styles.saveBtn} onPress={onSave} disabled={saving}>
         <Text style={styles.saveText}>{saving ? "Guardando…" : "Guardar cambios"}</Text>
