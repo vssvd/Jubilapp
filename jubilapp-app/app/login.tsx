@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { loginWithPassword } from "../src/api/auth";
 import { theme } from "../src/lib/theme";
@@ -90,13 +90,21 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg, padding: 24, justifyContent: "center" },
-  title: { color: theme.text, fontSize: 28, fontWeight: "800", marginBottom: 24, textAlign: "center" },
+  title: {
+    color: theme.text,
+    fontSize: 28,
+    marginBottom: 24,
+    textAlign: "center",
+    fontFamily: "MontserratSemiBold",
+    lineHeight: Platform.select({ ios: 32, android: 34, default: 32 }),
+  },
   input: {
     backgroundColor: "#fff", color: theme.text, borderRadius: 12, padding: 14,
     marginBottom: 12, borderWidth: 1, borderColor: theme.border,
+    fontFamily: "NunitoRegular",
   },
   btn: { backgroundColor: theme.primary, paddingVertical: 14, borderRadius: 14, alignItems: "center", marginTop: 6 },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  btnText: { color: "#fff", fontSize: 22, fontFamily: "MontserratSemiBold" },
   linkBtn: { marginTop: 16, alignItems: "center" },
-  link: { color: theme.primary },
+  link: { color: theme.primary, fontFamily: "NunitoRegular", fontSize: 15, lineHeight: Platform.select({ ios: 20, android: 22, default: 20 }) },
 });

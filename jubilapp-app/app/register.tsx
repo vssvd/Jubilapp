@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Alert,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { registerUser } from "../src/api/auth";
@@ -136,10 +137,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 20, backgroundColor: theme.bg },
   title: {
     fontSize: 28,
-    fontWeight: "700",
     marginBottom: 20,
     color: theme.text,
     textAlign: "center",
+    fontFamily: "MontserratSemiBold",
+    lineHeight: Platform.select({ ios: 32, android: 34, default: 32 }),
   },
   input: {
     borderWidth: 1,
@@ -148,6 +150,8 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
     backgroundColor: "#fff",
+    color: theme.text,
+    fontFamily: "NunitoRegular",
   },
   button: {
     backgroundColor: theme.primary,
@@ -155,11 +159,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  buttonText: { color: "#fff", fontSize: 22, fontFamily: "MontserratSemiBold" },
   link: {
     marginTop: 16,
     color: theme.primary,
     fontSize: 15,
+    fontFamily: "NunitoRegular",
+    lineHeight: Platform.select({ ios: 20, android: 22, default: 20 }),
     textAlign: "center",
   },
 });
