@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from "react-native";
 import { fetchProfile, updateProfile } from "../src/api/profile";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import { theme } from "../src/lib/theme";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
@@ -11,6 +11,7 @@ import { Image } from "expo-image";
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -40,6 +41,18 @@ export default function ProfileScreen() {
     })();
   }, []);
 
+  // Back de header personalizado para evitar warnings del beforeRemove en native-stack
+  useEffect(() => {
+    (navigation as any)?.setOptions?.({
+      headerBackVisible: false,
+      headerLeft: () => (
+        <TouchableOpacity onPress={() => router.replace("/home")} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+          <Text style={{ color: theme.primary, fontWeight: "700" }}>{"< JubilApp"}</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, router]);
+
   const onSave = async () => {
     const name = fullName.trim();
     if (!name) {
@@ -50,6 +63,8 @@ export default function ProfileScreen() {
     try {
       await updateProfile({ full_name: name, description: description });
       Alert.alert("Guardado", "Tus cambios han sido guardados ✅");
+      // Volver a Home tras guardar con éxito
+      router.replace("/home");
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "No se pudo guardar");
     } finally {

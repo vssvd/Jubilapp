@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../lib/theme";
 import { fetchCatalog, fetchMyInterests, saveMyInterests, saveMyInterestsByNames } from "../api/interests";
 import { useRouter } from "expo-router";
@@ -72,6 +73,7 @@ const categoryWithEmoji = (cat: string): string => ({
 
 export default function InterestsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -191,7 +193,7 @@ export default function InterestsScreen() {
         await saveMyInterestsByNames(selectedNames);
       }
       Alert.alert("Guardado", "Tus intereses se guardaron correctamente ✅", [
-        { text: "Continuar", onPress: () => router.replace("/preparation") },
+        { text: "Continuar", onPress: () => router.replace("/location") },
       ]);
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "No se pudo guardar");
@@ -209,8 +211,8 @@ export default function InterestsScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
+    <View style={{ flex: 1, backgroundColor: theme.bg, paddingTop: insets.top + 12 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 + insets.bottom }}>
         <Text style={{ fontSize: 22, fontWeight: "800", marginBottom: 8, color: theme.text }}>📝 Cuestionario de Intereses</Text>
 
         {grouped.map(([cat, idxs]) => (

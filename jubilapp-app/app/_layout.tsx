@@ -36,6 +36,7 @@ export default function RootLayout() {
         <Stack.Screen name="interests" options={{ title: "📝 Intereses", headerShown: false }} />
         <Stack.Screen name="profile" options={{ title: "👤 Perfil" }} />
         <Stack.Screen name="preparation" options={{ title: "🎯 Preparación", headerShown: false }} />
+        <Stack.Screen name="location" options={{ title: "📍 Ubicación", headerShown: false }} />
         <Stack.Screen name="tutorial" options={{ title: "Tutorial", headerShown: false }} />
         <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
       </Stack>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchPreparation, savePreparation, PreparationLevel } from "../api/preparation";
 import { useRouter } from "expo-router";
 
@@ -13,6 +14,7 @@ const OPTIONS: Option[] = [
 
 export default function PreparationLevelScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState<PreparationLevel | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,7 +57,7 @@ export default function PreparationLevelScreen() {
   }
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
+    <View style={{ flex: 1, padding: 16, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }}>
       <Text style={{ fontSize: 22, fontWeight: "700" }}>Indica tu nivel de preparación</Text>
       <Text style={{ color: "#555", marginBottom: 12 }}>
         Selecciona uno. Puedes cambiarlo luego desde tu perfil.
