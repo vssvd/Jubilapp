@@ -42,8 +42,8 @@ export default function Login() {
     try {
       setLoading(true);
       await loginWithPassword(email.trim(), password);
-      // Tras iniciar sesión, ir al Perfil (no en registro)
-      router.replace("/profile");
+      // Tras iniciar sesión, ir al Home con actividades
+      router.replace("/home");
     } catch (e: any) {
       Alert.alert("No se pudo iniciar sesión", mapAuthError(e));
     } finally {
@@ -145,11 +145,11 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg, padding: 24, justifyContent: "center" },
-  logo: { width: 72, height: 72, alignSelf: "center", marginBottom: 16 },
+  logo: { width: 110, height: 110, alignSelf: "center", marginBottom: 16 },
   title: {
     color: theme.text,
     fontSize: 28,
-    marginBottom: 24,
+    marginBottom: 22,
     textAlign: "center",
     fontFamily: "MontserratSemiBold",
     lineHeight: Platform.select({ ios: 32, android: 34, default: 32 }),
@@ -176,19 +176,19 @@ const styles = StyleSheet.create({
   inputIcon: { fontSize: 20, marginRight: 8 },
   input: {
     flex: 1,
-    height: 56,
+    height: 58,
     backgroundColor: "#fff",
     color: theme.text,
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: "NunitoRegular",
   },
   eyeBtn: { paddingHorizontal: 8, paddingVertical: 6 },
   eyeText: { fontSize: 18 },
-  btn: { backgroundColor: "#115E59", paddingVertical: 16, borderRadius: 24, alignItems: "center", marginTop: 8 },
+  btn: { backgroundColor: "#115E59", paddingVertical: 16, borderRadius: 24, alignItems: "center", marginTop: 14 },
   btnText: { color: "#fff", fontSize: 22, fontFamily: "MontserratSemiBold" },
   linkBtn: { marginTop: 16, alignItems: "center" },
   link: { color: "#2563EB", textDecorationLine: "underline", fontFamily: "NunitoRegular", fontSize: 16, lineHeight: Platform.select({ ios: 20, android: 22, default: 20 }) },
-  trust: { marginTop: 8, textAlign: "center", color: "#065f46", fontFamily: "NunitoRegular" },
-  accessibilityBtn: { marginTop: 8, alignItems: "center" },
-  accessibilityText: { color: "#2563EB", textDecorationLine: "underline", fontFamily: "NunitoRegular" },
+  trust: { marginTop: 10, textAlign: "center", color: "#065f46", fontFamily: "NunitoRegular" },
+  accessibilityBtn: { marginTop: 10, alignItems: "center" },
+  accessibilityText: { color: "#4B5563", fontFamily: "NunitoRegular", fontSize: 14 },
 });

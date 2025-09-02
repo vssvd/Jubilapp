@@ -30,12 +30,12 @@ export default function RootLayout() {
       >
         {/* Títulos agradables y consistentes */}
         <Stack.Screen name="index" options={{ title: "JubilApp", headerShown: false }} />
-        <Stack.Screen name="login" options={{ title: "🔐 Iniciar sesión" }} />
-        <Stack.Screen name="register" options={{ title: "✍️ Crear cuenta" }} />
-        <Stack.Screen name="home" options={{ title: "🎉 Bienvenida" }} />
-        <Stack.Screen name="interests" options={{ title: "📝 Intereses" }} />
+        <Stack.Screen name="login" options={{ title: "🔐 Iniciar sesión", headerShown: false }} />
+        <Stack.Screen name="register" options={{ title: "✍️ Crear cuenta", headerShown: false }} />
+        <Stack.Screen name="home" options={{ title: "🎉 Bienvenida", headerShown: false }} />
+        <Stack.Screen name="interests" options={{ title: "📝 Intereses", headerShown: false }} />
         <Stack.Screen name="profile" options={{ title: "👤 Perfil" }} />
-        <Stack.Screen name="preparation" options={{ title: "🎯 Preparación" }} />
+        <Stack.Screen name="preparation" options={{ title: "🎯 Preparación", headerShown: false }} />
         <Stack.Screen name="tutorial" options={{ title: "Tutorial", headerShown: false }} />
         <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
       </Stack>
