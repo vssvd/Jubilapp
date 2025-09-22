@@ -1,7 +1,7 @@
 import React, { createContext, useEffect, useState, useContext } from "react";
 import { onIdTokenChanged, type User } from "firebase/auth";
 import { auth } from "../firebaseConfig";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { clearSession, saveSession } from "../storage/session";
 
 type Ctx = { user: User | null; loading: boolean };
 const AuthCtx = createContext<Ctx | undefined>(undefined);
@@ -15,10 +15,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(fbUser);
       try {
         if (fbUser) {
-          const token = await fbUser.getIdToken(true);
-          await AsyncStorage.setItem("fb_id_token", token); // opcional (debug)
+          const token = await fbUser.getIdToken();
+          await saveSession({ uid: fbUser.uid, token });
         } else {
-          await AsyncStorage.removeItem("fb_id_token");
+          await clearSession();
         }
       } finally {
         setLoading(false);

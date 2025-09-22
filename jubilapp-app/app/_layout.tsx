@@ -7,6 +7,7 @@ import { Nunito_400Regular } from "@expo-google-fonts/nunito";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
+import { AuthProvider } from "../src/auth/AuthProvider";
 import { theme } from "../src/lib/theme";
 
 export default function RootLayout() {
@@ -19,28 +20,30 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <Stack
-        screenOptions={{
-          headerShown: true,
-          headerStyle: { backgroundColor: theme.bg },
-          headerTintColor: theme.text,
-          headerTitleStyle: { color: theme.text, fontWeight: "800" },
-        }}
-      >
-        {/* Títulos agradables y consistentes */}
-        <Stack.Screen name="index" options={{ title: "JubilApp", headerShown: false }} />
-        <Stack.Screen name="login" options={{ title: "🔐 Iniciar sesión", headerShown: false }} />
-        <Stack.Screen name="register" options={{ title: "✍️ Crear cuenta", headerShown: false }} />
-        <Stack.Screen name="home" options={{ title: "🎉 Bienvenida", headerShown: false }} />
-        <Stack.Screen name="interests" options={{ title: "📝 Intereses", headerShown: false }} />
-        <Stack.Screen name="profile" options={{ title: "👤 Perfil" }} />
-        <Stack.Screen name="preparation" options={{ title: "🎯 Preparación", headerShown: false }} />
-        <Stack.Screen name="location" options={{ title: "📍 Ubicación", headerShown: false }} />
-        <Stack.Screen name="tutorial" options={{ title: "Tutorial", headerShown: false }} />
-        <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
-      </Stack>
-      <StatusBar style="dark" />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider value={DefaultTheme}>
+        <Stack
+          screenOptions={{
+            headerShown: true,
+            headerStyle: { backgroundColor: theme.bg },
+            headerTintColor: theme.text,
+            headerTitleStyle: { color: theme.text, fontWeight: "800" },
+          }}
+        >
+          {/* Títulos agradables y consistentes */}
+          <Stack.Screen name="index" options={{ title: "JubilApp", headerShown: false }} />
+          <Stack.Screen name="login" options={{ title: "🔐 Iniciar sesión", headerShown: false }} />
+          <Stack.Screen name="register" options={{ title: "✍️ Crear cuenta", headerShown: false }} />
+          <Stack.Screen name="home" options={{ title: "🎉 Bienvenida", headerShown: false }} />
+          <Stack.Screen name="interests" options={{ title: "📝 Intereses", headerShown: false }} />
+          <Stack.Screen name="profile" options={{ title: "👤 Perfil" }} />
+          <Stack.Screen name="preparation" options={{ title: "🎯 Preparación", headerShown: false }} />
+          <Stack.Screen name="location" options={{ title: "📍 Ubicación", headerShown: false }} />
+          <Stack.Screen name="tutorial" options={{ title: "Tutorial", headerShown: false }} />
+          <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
+        </Stack>
+        <StatusBar style="dark" />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

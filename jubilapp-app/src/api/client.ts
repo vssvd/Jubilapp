@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { auth } from "../firebaseConfig";
+import { loadSession } from "../storage/session";
 
 function deriveDevApiBase(): string | undefined {
   const hostUri = (Constants as any)?.expoConfig?.hostUri as string | undefined;
@@ -22,12 +23,19 @@ type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 async function getFirebaseIdToken(): Promise<string | undefined> {
   try {
     const user = auth.currentUser;
-    if (!user) return undefined;
-    // Evita refrescar en cada request para rendimiento
-    return await user.getIdToken();
+    if (user) {
+      // Evita refrescar en cada request para rendimiento
+      return await user.getIdToken();
+    }
   } catch {
-    return undefined;
+    // Ignoramos y probamos con la sesión persistida
   }
+
+  const persisted = await loadSession();
+  if (!persisted) return undefined;
+
+  const isFresh = !persisted.storedAt || Date.now() - persisted.storedAt < 55 * 60 * 1000;
+  return isFresh ? persisted.token : undefined;
 }
 
 export async function request<T>(

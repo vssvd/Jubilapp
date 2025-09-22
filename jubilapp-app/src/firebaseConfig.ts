@@ -1,7 +1,9 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
+import { initializeAuth, getReactNativePersistence } from "firebase/auth/react-native";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const extra = (Constants.expoConfig?.extra || {}) as Record<string, string>;
 const env = (k: string) => process.env[k] || extra[k.replace("EXPO_PUBLIC_", "")] || extra[k] || "";
@@ -35,7 +37,18 @@ try {
   }
 } catch {}
 
-// Inicializa Auth de forma segura (RN/Web). Si necesitas persistencia RN avanzada, podemos añadir initializeAuth más adelante.
-const auth: Auth = getAuth(app);
+// Inicializa Auth con persistencia nativa en RN y estándar en Web
+let auth: Auth;
+if (Platform.OS === "web") {
+  auth = getAuth(app);
+} else {
+  try {
+    auth = getAuth(app);
+  } catch {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  }
+}
 
 export { app, auth };
