@@ -10,6 +10,13 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { logout } from "../src/api/auth";
+import { fetchPreparation, savePreparation, type PreparationLevel } from "../src/api/preparation";
+
+const PREPARATION_OPTIONS: Array<{ key: PreparationLevel; title: string; description: string }> = [
+  { key: "planificado", title: "Planificado", description: "Tengo metas y actividades definidas." },
+  { key: "intermedio", title: "Intermedio", description: "Tengo ideas, pero no completamente organizadas." },
+  { key: "desorientado", title: "Desorientado", description: "No sé por dónde empezar." },
+];
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -23,11 +30,16 @@ export default function ProfileScreen() {
   const [city, setCity] = useState("");
   const [region, setRegion] = useState("");
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
+  const [preparation, setPreparation] = useState<PreparationLevel | null>(null);
+  const [prepSaving, setPrepSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const data = await fetchProfile();
+        const [data, prepLevel] = await Promise.all([
+          fetchProfile(),
+          fetchPreparation().catch(() => null),
+        ]);
         setFullName((data.full_name ?? "").toString());
         setEmail(data.email ?? null);
         setDescription((data.description ?? "").toString());
@@ -35,6 +47,7 @@ export default function ProfileScreen() {
         setCity((data.location_city ?? "").toString());
         setRegion((data.location_region ?? "").toString());
         setCoords({ lat: (data.location_lat ?? null) as any, lng: (data.location_lng ?? null) as any });
+        setPreparation((prepLevel ?? null) as PreparationLevel | null);
       } catch (e: any) {
         Alert.alert("Sesión", e?.message ?? "Vuelve a iniciar sesión.");
       } finally {
@@ -57,6 +70,22 @@ export default function ProfileScreen() {
       { text: "Cerrar", style: "destructive", onPress: () => { void performLogout(); } },
     ]);
   }, [performLogout]);
+
+  const savePreparationLevel = useCallback(async () => {
+    if (!preparation) {
+      Alert.alert("Nivel de preparación", "Selecciona una opción para continuar.");
+      return;
+    }
+    setPrepSaving(true);
+    try {
+      await savePreparation(preparation);
+      Alert.alert("Nivel actualizado", "Guardamos tu nivel de preparación ✅");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "No se pudo guardar el nivel");
+    } finally {
+      setPrepSaving(false);
+    }
+  }, [preparation]);
 
   // Back de header personalizado para evitar warnings del beforeRemove en native-stack
   useEffect(() => {
@@ -259,6 +288,36 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.sectionDivider} />
+      <Text style={styles.label}>Nivel de preparación</Text>
+      <Text style={styles.helperText}>
+        Selecciona el nivel que mejor te represente. Puedes cambiarlo cuando quieras.
+      </Text>
+      {PREPARATION_OPTIONS.map((opt) => {
+        const active = preparation === opt.key;
+        return (
+          <TouchableOpacity
+            key={opt.key}
+            onPress={() => setPreparation(opt.key)}
+            style={[styles.prepOption, active && styles.prepOptionActive]}
+            disabled={prepSaving}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.prepTitle, active && styles.prepTitleActive]}>{opt.title}</Text>
+              <Text style={styles.prepDescription}>{opt.description}</Text>
+            </View>
+            {active && <Ionicons name="checkmark-circle" size={22} color={theme.primary} style={{ marginLeft: 12 }} />}
+          </TouchableOpacity>
+        );
+      })}
+      <TouchableOpacity
+        style={[styles.saveBtn, styles.prepSaveBtn, prepSaving && { opacity: 0.6 }]}
+        onPress={savePreparationLevel}
+        disabled={prepSaving || !preparation}
+      >
+        <Text style={styles.saveText}>{prepSaving ? "Guardando…" : "Guardar nivel"}</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.saveBtn} onPress={onSave} disabled={saving}>
         <Text style={styles.saveText}>{saving ? "Guardando…" : "Guardar cambios"}</Text>
       </TouchableOpacity>
@@ -292,4 +351,24 @@ const styles = StyleSheet.create({
   secondaryText: { color: theme.primary, fontWeight: "700" },
   linkBtn: { marginLeft: 12, padding: 8 },
   linkText: { color: theme.primary, fontWeight: "700" },
+  helperText: { color: theme.muted, marginBottom: 8 },
+  sectionDivider: { marginTop: 24, marginBottom: 8, height: 1, backgroundColor: theme.border },
+  prepOption: {
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  prepOptionActive: {
+    borderColor: theme.primary,
+    backgroundColor: "#ECFDF5",
+  },
+  prepTitle: { fontWeight: "700", color: theme.text, fontSize: 16, marginBottom: 4 },
+  prepTitleActive: { color: theme.primary },
+  prepDescription: { color: theme.muted, fontSize: 14 },
+  prepSaveBtn: { marginTop: 8 },
 });
