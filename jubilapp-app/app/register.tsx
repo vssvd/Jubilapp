@@ -23,6 +23,8 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [emailConfirm, setEmailConfirm] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -47,16 +49,24 @@ export default function Register() {
 
   const onSubmit = async () => {
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      Alert.alert("Campos requeridos", "Completa nombre, correo y contraseña.");
+    if (!name.trim() || !email.trim() || !password.trim() || !emailConfirm.trim() || !passwordConfirm.trim()) {
+      Alert.alert("Campos requeridos", "Completa nombre, correo, confirmaciones y contraseña.");
       return;
     }
     if (!emailRe.test(email.trim())) {
       Alert.alert("Correo inválido", "Revisa el formato del correo.");
       return;
     }
+    if (email.trim() !== emailConfirm.trim()) {
+      Alert.alert("Correo", "El correo y su confirmación no coinciden.");
+      return;
+    }
     if (password.length < 6) {
       Alert.alert("Contraseña débil", "Debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (password !== passwordConfirm) {
+      Alert.alert("Contraseña", "La contraseña y su confirmación no coinciden.");
       return;
     }
 
@@ -143,6 +153,24 @@ export default function Register() {
       </View>
 
       <View style={styles.inputRow}>
+        <Text style={styles.inputIcon} accessibilityElementsHidden>🔁</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Confirmar correo"
+          placeholderTextColor="#374151"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          value={emailConfirm}
+          onChangeText={setEmailConfirm}
+          autoComplete="email"
+          textContentType="emailAddress"
+          accessible
+          accessibilityLabel="Confirmar correo"
+          returnKeyType="next"
+        />
+      </View>
+
+      <View style={styles.inputRow}>
         <Text style={styles.inputIcon} accessibilityElementsHidden>🔑</Text>
         <TextInput
           style={styles.input}
@@ -164,6 +192,22 @@ export default function Register() {
         >
           <Text style={styles.eyeText}>{showPassword ? "🙈" : "👁️"}</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.inputRow}>
+        <Text style={styles.inputIcon} accessibilityElementsHidden>✅</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Confirmar contraseña"
+          placeholderTextColor="#374151"
+          secureTextEntry={!showPassword}
+          value={passwordConfirm}
+          onChangeText={setPasswordConfirm}
+          autoComplete="password"
+          textContentType="password"
+          accessible
+          accessibilityLabel="Confirmar contraseña"
+        />
       </View>
 
       <TouchableOpacity
