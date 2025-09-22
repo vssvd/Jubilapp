@@ -8,7 +8,16 @@ type TabKey = "home" | "calendar" | "community" | "profile";
 export default function BottomNav({ active }: { active: TabKey }) {
   const router = useRouter();
   const btn = (key: TabKey, label: string, emoji: string, path: string) => (
-    <TouchableOpacity onPress={() => router.replace(path)} style={styles.item} accessibilityRole="button" accessibilityLabel={label}>
+    <TouchableOpacity
+      onPress={() => {
+        if (active !== key) {
+          router.navigate(path);
+        }
+      }}
+      style={styles.item}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <Text style={[styles.icon, active === key && styles.active]}>{emoji}</Text>
       <Text style={[styles.label, active === key && styles.active]}>{label}</Text>
     </TouchableOpacity>
