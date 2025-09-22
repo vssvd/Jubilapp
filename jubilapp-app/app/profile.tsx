@@ -1,21 +1,40 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, StyleSheet, Modal, ScrollView, Pressable, KeyboardAvoidingView, Platform } from "react-native";
 import { fetchProfile, updateProfile } from "../src/api/profile";
 import { useRouter, useNavigation } from "expo-router";
 import { theme } from "../src/lib/theme";
-import * as ImagePicker from "expo-image-picker";
-import * as Location from "expo-location";
-import { auth } from "../src/firebaseConfig";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { logout } from "../src/api/auth";
 import { fetchPreparation, savePreparation, type PreparationLevel } from "../src/api/preparation";
+import * as Location from "expo-location";
 
 const PREPARATION_OPTIONS: Array<{ key: PreparationLevel; title: string; description: string }> = [
   { key: "planificado", title: "Planificado", description: "Tengo metas y actividades definidas." },
   { key: "intermedio", title: "Intermedio", description: "Tengo ideas, pero no completamente organizadas." },
   { key: "desorientado", title: "Desorientado", description: "No sé por dónde empezar." },
+];
+
+const AVATAR_SETS: Array<{ title: string; options: string[] }> = [
+  {
+    title: "Personas",
+    options: ["👤", "👩", "👨", "👴", "👵", "👥"],
+  },
+  {
+    title: "Intereses",
+    options: ["🎨", "📚", "🎶", "🚶", "🧘", "🏞️", "🎲"],
+  },
+  {
+    title: "Naturaleza y compañía",
+    options: ["🐱", "🐶", "🌻", "🌳"],
+  },
+  {
+    title: "Estilo",
+    options: ["⭐", "❤️", "🌈", "☀️"],
+  },
+  {
+    title: "Identidad",
+    options: ["🟢", "🔵", "🟣", "🟠", "🟥", "🟩"],
+  },
 ];
 
 export default function ProfileScreen() {
@@ -26,12 +45,16 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState<string | null>(null);
   const [description, setDescription] = useState("");
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [showDescriptionEditor, setShowDescriptionEditor] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState("");
+  const [descSaving, setDescSaving] = useState(false);
+  const [avatarEmoji, setAvatarEmoji] = useState<string | null>(null);
   const [city, setCity] = useState("");
   const [region, setRegion] = useState("");
-  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const [preparation, setPreparation] = useState<PreparationLevel | null>(null);
   const [prepSaving, setPrepSaving] = useState(false);
+  const [showPrepPicker, setShowPrepPicker] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -43,10 +66,10 @@ export default function ProfileScreen() {
         setFullName((data.full_name ?? "").toString());
         setEmail(data.email ?? null);
         setDescription((data.description ?? "").toString());
-        setPhotoUrl((data.photo_url ?? null) as any);
+        setDescriptionDraft((data.description ?? "").toString());
+        setAvatarEmoji((data.photo_url ?? null) as any);
         setCity((data.location_city ?? "").toString());
         setRegion((data.location_region ?? "").toString());
-        setCoords({ lat: (data.location_lat ?? null) as any, lng: (data.location_lng ?? null) as any });
         setPreparation((prepLevel ?? null) as PreparationLevel | null);
       } catch (e: any) {
         Alert.alert("Sesión", e?.message ?? "Vuelve a iniciar sesión.");
@@ -71,21 +94,19 @@ export default function ProfileScreen() {
     ]);
   }, [performLogout]);
 
-  const savePreparationLevel = useCallback(async () => {
-    if (!preparation) {
-      Alert.alert("Nivel de preparación", "Selecciona una opción para continuar.");
-      return;
-    }
+  const applyPreparationLevel = useCallback(async (level: PreparationLevel) => {
     setPrepSaving(true);
     try {
-      await savePreparation(preparation);
+      await savePreparation(level);
+      setPreparation(level);
       Alert.alert("Nivel actualizado", "Guardamos tu nivel de preparación ✅");
+      setShowPrepPicker(false);
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "No se pudo guardar el nivel");
     } finally {
       setPrepSaving(false);
     }
-  }, [preparation]);
+  }, []);
 
   // Back de header personalizado para evitar warnings del beforeRemove en native-stack
   useEffect(() => {
@@ -128,44 +149,43 @@ export default function ProfileScreen() {
     }
   };
 
-  const pickAndUpload = async () => {
+  const selectAvatar = useCallback(async (emoji: string) => {
+    const previous = avatarEmoji;
     try {
-      // Permisos
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permiso requerido", "Necesitamos acceso a tus fotos para continuar.");
-        return;
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        // usa string literal para evitar incompatibilidades ('Images' vs 'images')
-        mediaTypes: 'images' as any,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-      if (result.canceled) return;
-
-      const asset = result.assets[0];
-      const uri = asset.uri;
-      if (!uri) return;
-
       setSaving(true);
-      const user = auth.currentUser;
-      if (!user) throw new Error("No autenticado");
-
-      const res = await fetch(uri);
-      const blob = await res.blob();
-      const storage = getStorage();
-      const fileRef = ref(storage, `avatars/${user.uid}.jpg`);
-      await uploadBytes(fileRef, blob, { contentType: asset.mimeType || "image/jpeg" });
-      const url = await getDownloadURL(fileRef);
-      setPhotoUrl(url);
-      await updateProfile({ photo_url: url });
-      Alert.alert("Foto actualizada", "Tu foto de perfil se actualizó ✅");
+      setAvatarEmoji(emoji);
+      await updateProfile({ photo_url: emoji });
+      Alert.alert("Avatar actualizado", "Guardamos tu icono de perfil ✅");
     } catch (e: any) {
-      Alert.alert("Error", e?.message ?? "No se pudo subir la imagen");
+      Alert.alert("Error", e?.message ?? "No se pudo guardar el icono");
+      setAvatarEmoji(previous ?? null);
     } finally {
       setSaving(false);
+    }
+  }, [avatarEmoji]);
+
+  const handlePickAvatar = useCallback(async (emoji: string) => {
+    await selectAvatar(emoji);
+    setShowAvatarPicker(false);
+  }, [selectAvatar]);
+
+  const openDescriptionEditor = () => {
+    setDescriptionDraft(description);
+    setShowDescriptionEditor(true);
+  };
+
+  const saveDescription = async () => {
+    if (descSaving) return;
+    setDescSaving(true);
+    try {
+      await updateProfile({ description: descriptionDraft });
+      setDescription(descriptionDraft);
+      setShowDescriptionEditor(false);
+      Alert.alert("Descripción", "Actualizamos tu texto de perfil ✅");
+    } catch (e: any) {
+      Alert.alert("Descripción", e?.message ?? "No se pudo guardar la descripción");
+    } finally {
+      setDescSaving(false);
     }
   };
 
@@ -183,7 +203,6 @@ export default function ProfileScreen() {
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
-      setCoords({ lat, lng });
       let newCity = city, newRegion = region;
       try {
         const rr = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
@@ -216,15 +235,11 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.avatarRow}>
-        {photoUrl ? (
-          <Image source={{ uri: photoUrl }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={{ color: "#fff", fontWeight: "800" }}>{(fullName || email || "?").slice(0,1).toUpperCase()}</Text>
-          </View>
-        )}
-        <TouchableOpacity style={styles.linkBtn} onPress={pickAndUpload} disabled={saving}>
-          <Text style={styles.linkText}>Cambiar foto</Text>
+        <View style={[styles.avatar, styles.avatarPlaceholder]}>
+          <Text style={{ fontSize: 28 }}>{avatarEmoji || (fullName || email || "?").slice(0,1).toUpperCase()}</Text>
+        </View>
+        <TouchableOpacity style={styles.linkBtn} onPress={() => setShowAvatarPicker(true)} disabled={saving}>
+          <Text style={styles.linkText}>Cambiar icono</Text>
         </TouchableOpacity>
       </View>
       <Text style={styles.label}>Correo</Text>
@@ -240,15 +255,11 @@ export default function ProfileScreen() {
       />
 
       <Text style={styles.label}>Descripción</Text>
-      <TextInput
-        placeholder="Cuéntanos algo sobre ti"
-        placeholderTextColor={theme.muted}
-        value={description}
-        onChangeText={setDescription}
-        style={[styles.input, { height: 100, textAlignVertical: "top" }]}
-        multiline
-        numberOfLines={4}
-      />
+      <TouchableOpacity style={styles.descriptionChip} onPress={openDescriptionEditor} accessibilityRole="button">
+        <Text style={description ? styles.descriptionText : styles.descriptionPlaceholder}>
+          {description ? (description.length > 80 ? `${description.slice(0, 80)}…` : description) : "Añade una breve descripción"}
+        </Text>
+      </TouchableOpacity>
 
       <Text style={[styles.label, { marginTop: 8 }]}>Ubicación</Text>
       <Text style={{ color: theme.muted, marginBottom: 6 }}>
@@ -290,32 +301,16 @@ export default function ProfileScreen() {
 
       <View style={styles.sectionDivider} />
       <Text style={styles.label}>Nivel de preparación</Text>
-      <Text style={styles.helperText}>
-        Selecciona el nivel que mejor te represente. Puedes cambiarlo cuando quieras.
-      </Text>
-      {PREPARATION_OPTIONS.map((opt) => {
-        const active = preparation === opt.key;
-        return (
-          <TouchableOpacity
-            key={opt.key}
-            onPress={() => setPreparation(opt.key)}
-            style={[styles.prepOption, active && styles.prepOptionActive]}
-            disabled={prepSaving}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.prepTitle, active && styles.prepTitleActive]}>{opt.title}</Text>
-              <Text style={styles.prepDescription}>{opt.description}</Text>
-            </View>
-            {active && <Ionicons name="checkmark-circle" size={22} color={theme.primary} style={{ marginLeft: 12 }} />}
-          </TouchableOpacity>
-        );
-      })}
-      <TouchableOpacity
-        style={[styles.saveBtn, styles.prepSaveBtn, prepSaving && { opacity: 0.6 }]}
-        onPress={savePreparationLevel}
-        disabled={prepSaving || !preparation}
-      >
-        <Text style={styles.saveText}>{prepSaving ? "Guardando…" : "Guardar nivel"}</Text>
+      <TouchableOpacity style={styles.prepChip} onPress={() => setShowPrepPicker(true)} accessibilityRole="button">
+        <View>
+          <Text style={styles.prepChipTitle}>
+            {preparation ? PREPARATION_OPTIONS.find((o) => o.key === preparation)?.title ?? "Selecciona tu nivel" : "Selecciona tu nivel"}
+          </Text>
+          <Text style={styles.prepChipSubtitle} numberOfLines={1}>
+            {preparation ? PREPARATION_OPTIONS.find((o) => o.key === preparation)?.description ?? "" : "Tócalo para elegir"}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={theme.primary} />
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.saveBtn} onPress={onSave} disabled={saving}>
@@ -325,6 +320,105 @@ export default function ProfileScreen() {
       <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push("/interests")}>
         <Text style={styles.secondaryText}>Editar intereses</Text>
       </TouchableOpacity>
+
+      <Modal visible={showAvatarPicker} transparent animationType="slide" onRequestClose={() => setShowAvatarPicker(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowAvatarPicker(false)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Elige un icono</Text>
+              <TouchableOpacity onPress={() => setShowAvatarPicker(false)}>
+                <Text style={styles.modalClose}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.avatarPickerScroll}>
+              {AVATAR_SETS.map((set) => (
+                <View key={set.title} style={{ marginBottom: 16 }}>
+                  <Text style={styles.avatarSectionTitle}>{set.title}</Text>
+                  <View style={styles.avatarGrid}>
+                    {set.options.map((emoji) => {
+                      const active = avatarEmoji === emoji;
+                      return (
+                        <TouchableOpacity
+                          key={emoji}
+                          style={[styles.avatarChoice, active && styles.avatarChoiceActive]}
+                          onPress={() => { void handlePickAvatar(emoji); }}
+                          disabled={saving}
+                          accessibilityLabel={`Elegir icono ${emoji}`}
+                        >
+                          <Text style={{ fontSize: 26 }}>{emoji}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={showPrepPicker} transparent animationType="slide" onRequestClose={() => setShowPrepPicker(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPrepPicker(false)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecciona tu nivel</Text>
+              <TouchableOpacity onPress={() => setShowPrepPicker(false)}>
+                <Text style={styles.modalClose}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.avatarPickerScroll}>
+              {PREPARATION_OPTIONS.map((opt) => {
+                const active = preparation === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[styles.prepOption, active && styles.prepOptionActive]}
+                    onPress={() => { if (!prepSaving) { void applyPreparationLevel(opt.key); } }}
+                    disabled={prepSaving}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.prepTitle, active && styles.prepTitleActive]}>{opt.title}</Text>
+                      <Text style={styles.prepDescription}>{opt.description}</Text>
+                    </View>
+                    {active && <Ionicons name="checkmark-circle" size={22} color={theme.primary} style={{ marginLeft: 12 }} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={showDescriptionEditor} transparent animationType="slide" onRequestClose={() => setShowDescriptionEditor(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDescriptionEditor(false)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Editar descripción</Text>
+                <TouchableOpacity onPress={() => setShowDescriptionEditor(false)}>
+                  <Text style={styles.modalClose}>Cerrar</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                value={descriptionDraft}
+                onChangeText={setDescriptionDraft}
+                placeholder="Cuéntanos algo sobre ti"
+                placeholderTextColor={theme.muted}
+                multiline
+                numberOfLines={4}
+                style={styles.descriptionInput}
+              />
+              <TouchableOpacity
+                style={[styles.saveBtn, descSaving && { opacity: 0.7 }]}
+                onPress={saveDescription}
+                disabled={descSaving}
+              >
+                <Text style={styles.saveText}>{descSaving ? "Guardando…" : "Guardar descripción"}</Text>
+              </TouchableOpacity>
+            </KeyboardAvoidingView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -332,9 +426,9 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.bg },
   container: { flex: 1, backgroundColor: theme.bg, padding: 16 },
-  avatarRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#ddd" },
-  avatarPlaceholder: { alignItems: "center", justifyContent: "center", backgroundColor: theme.primary },
+  avatarRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 12 },
+  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+  avatarPlaceholder: { alignItems: "center", justifyContent: "center", backgroundColor: theme.border },
   label: { color: theme.muted, marginTop: 12, marginBottom: 6 },
   readonly: { color: theme.text, backgroundColor: "#fff", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: theme.border },
   input: {
@@ -349,10 +443,41 @@ const styles = StyleSheet.create({
   saveText: { color: "#fff", fontWeight: "800" },
   secondaryBtn: { paddingVertical: 12, alignItems: "center", marginTop: 12 },
   secondaryText: { color: theme.primary, fontWeight: "700" },
-  linkBtn: { marginLeft: 12, padding: 8 },
+  avatarSectionTitle: { color: theme.text, fontWeight: "600", marginBottom: 6 },
+  avatarGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  avatarChoice: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: theme.border },
+  avatarChoiceActive: { borderColor: theme.primary, backgroundColor: "#ECFDF5" },
+  helperText: { color: theme.muted, marginBottom: 12 },
+  linkBtn: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, borderColor: theme.primary },
   linkText: { color: theme.primary, fontWeight: "700" },
-  helperText: { color: theme.muted, marginBottom: 8 },
+  descriptionChip: {
+    backgroundColor: "#f4f4f5",
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+    marginBottom: 4,
+  },
+  descriptionText: { color: theme.text, fontSize: 14 },
+  descriptionPlaceholder: { color: theme.muted, fontSize: 14 },
   sectionDivider: { marginTop: 24, marginBottom: 8, height: 1, backgroundColor: theme.border },
+  prepChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  prepChipTitle: { fontWeight: "700", color: theme.text, fontSize: 16 },
+  prepChipSubtitle: { color: theme.muted, marginTop: 2, fontSize: 13 },
   prepOption: {
     borderWidth: 1,
     borderColor: theme.border,
@@ -371,4 +496,21 @@ const styles = StyleSheet.create({
   prepTitleActive: { color: theme.primary },
   prepDescription: { color: theme.muted, fontSize: 14 },
   prepSaveBtn: { marginTop: 8 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-end" },
+  modalContent: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "70%", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: theme.text },
+  modalClose: { color: theme.primary, fontWeight: "700" },
+  avatarPickerScroll: { paddingBottom: 12 },
+  descriptionInput: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    color: theme.text,
+    padding: 12,
+    minHeight: 120,
+    textAlignVertical: "top",
+    marginBottom: 16,
+  },
 });
