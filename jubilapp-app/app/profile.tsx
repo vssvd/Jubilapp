@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from "react-native";
 import { fetchProfile, updateProfile } from "../src/api/profile";
 import { useRouter, useNavigation } from "expo-router";
@@ -8,6 +8,8 @@ import * as Location from "expo-location";
 import { auth } from "../src/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
+import { logout } from "../src/api/auth";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -41,6 +43,21 @@ export default function ProfileScreen() {
     })();
   }, []);
 
+  const performLogout = useCallback(async () => {
+    try {
+      await logout();
+    } finally {
+      router.replace("/login");
+    }
+  }, [router]);
+
+  const confirmLogout = useCallback(() => {
+    Alert.alert("Cerrar sesión", "¿Seguro que deseas salir?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Cerrar", style: "destructive", onPress: () => { void performLogout(); } },
+    ]);
+  }, [performLogout]);
+
   // Back de header personalizado para evitar warnings del beforeRemove en native-stack
   useEffect(() => {
     (navigation as any)?.setOptions?.({
@@ -50,8 +67,18 @@ export default function ProfileScreen() {
           <Text style={{ color: theme.primary, fontWeight: "700" }}>{"< JubilApp"}</Text>
         </TouchableOpacity>
       ),
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={confirmLogout}
+          accessibilityLabel="Cerrar sesión"
+          accessibilityHint="Termina la sesión actual"
+          style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+        >
+          <Ionicons name="log-out-outline" size={22} color={theme.primary} />
+        </TouchableOpacity>
+      ),
     });
-  }, [navigation, router]);
+  }, [navigation, router, confirmLogout]);
 
   const onSave = async () => {
     const name = fullName.trim();
