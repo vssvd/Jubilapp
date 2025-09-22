@@ -1,6 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
-import { initializeAuth, getReactNativePersistence } from "firebase/auth/react-native";
+import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -43,11 +43,11 @@ if (Platform.OS === "web") {
   auth = getAuth(app);
 } else {
   try {
-    auth = getAuth(app);
-  } catch {
     auth = initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage),
     });
+  } catch {
+    auth = getAuth(app);
   }
 }
 
