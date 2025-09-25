@@ -94,3 +94,10 @@ class ActivityOut(ActivityBase):
         "from_attributes": True,
         "populate_by_name": True,
     }
+
+
+class ActivitiesSeedSummary(BaseModel):
+    created: int
+    updated: int
+    skipped: int
+    total: int

@@ -35,6 +35,18 @@ ATEMPORAL_ACTIVITIES: List[Dict] = [
     {"id": 26, "title": "Plan de paseo local", "emoji": "🗺️", "tags": ["Viajes y turismo local"], "indoor": False, "energy": "media", "duration_min": 30, "cost": "gratis", "time_of_day": "tarde"},
     {"id": 27, "title": "Sesión corta de natación", "emoji": "🏊", "tags": ["Natación"], "indoor": False, "energy": "alta", "duration_min": 30, "cost": "medio", "time_of_day": "tarde"},
     {"id": 28, "title": "Pesca en lago o río", "emoji": "🎣", "tags": ["Pesca"], "indoor": False, "energy": "baja", "duration_min": 90, "cost": "medio", "time_of_day": "manana"},
+    {"id": 29, "title": "Armar un rompecabezas", "emoji": "🧩", "tags": ["Juegos de mesa / lógica"], "indoor": True, "energy": "baja", "duration_min": 40, "cost": "bajo", "time_of_day": "tarde"},
+    {"id": 30, "title": "Escuchar un pódcast educativo", "emoji": "🎧", "tags": ["Escucha / aprendizaje", "Tecnología (apps, redes sociales)"], "indoor": True, "energy": "baja", "duration_min": 25, "cost": "gratis", "time_of_day": "mañana"},
+    {"id": 31, "title": "Escribir una carta a alguien especial", "emoji": "💌", "tags": ["Escritura / lectura creativa"], "indoor": True, "energy": "baja", "duration_min": 20, "cost": "gratis", "time_of_day": "tarde"},
+    {"id": 32, "title": "Dar de comer a aves en la plaza", "emoji": "🐦", "tags": ["Naturaleza", "Actividades al aire libre"], "indoor": False, "energy": "baja", "duration_min": 15, "cost": "bajo", "time_of_day": "mañana"},
+    {"id": 33, "title": "Aprender un truco de cocina nuevo", "emoji": "🍳", "tags": ["Cocina creativa"], "indoor": True, "energy": "media", "duration_min": 30, "cost": "medio", "time_of_day": "tarde"},
+    {"id": 34, "title": "Hacer manualidades simples", "emoji": "✂️", "tags": ["Manualidades / DIY"], "indoor": True, "energy": "media", "duration_min": 40, "cost": "bajo", "time_of_day": "tarde"},
+    {"id": 35, "title": "Escribir tu lista de agradecimientos", "emoji": "🙏", "tags": ["Reflexión personal / mindfulness"], "indoor": True, "energy": "baja", "duration_min": 15, "cost": "gratis", "time_of_day": "noche"},
+    {"id": 36, "title": "Aprender pasos básicos de baile folklórico", "emoji": "🪗", "tags": ["Baile", "Cultura local"], "indoor": True, "energy": "media", "duration_min": 25, "cost": "gratis", "time_of_day": "tarde"},
+    {"id": 37, "title": "Hacer una caminata fotográfica", "emoji": "📸", "tags": ["Fotografía", "Caminatas / trekking"], "indoor": False, "energy": "media", "duration_min": 45, "cost": "gratis", "time_of_day": "mañana"},
+    {"id": 38, "title": "Resolver un crucigrama o sudoku", "emoji": "📝", "tags": ["Juegos de lógica / palabras"], "indoor": True, "energy": "baja", "duration_min": 20, "cost": "gratis", "time_of_day": "mañana"},
+    {"id": 39, "title": "Visitar una feria artesanal", "emoji": "🛍️", "tags": ["Cultura local", "Manualidades / artesanía"], "indoor": False, "energy": "media", "duration_min": 60, "cost": "medio", "time_of_day": "tarde"},
+    {"id": 40, "title": "Preparar jugos o batidos naturales", "emoji": "🥤", "tags": ["Cocina saludable"], "indoor": True, "energy": "media", "duration_min": 20, "cost": "bajo", "time_of_day": "mañana"},
 ]
 
 

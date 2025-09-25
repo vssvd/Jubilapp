@@ -7,8 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from firebase_admin import firestore
 
 from app.firebase import db
-from app.schemas_activities import ActivityCreate, ActivityOut, ActivityUpdate
+from app.schemas_activities import (
+    ActivityCreate,
+    ActivityOut,
+    ActivityUpdate,
+    ActivitiesSeedSummary,
+)
 from app.security import get_current_uid
+from app.services.activities_seed import seed_atemporal_activities
 
 
 router = APIRouter(prefix="/activities", tags=["Activities"])
@@ -118,6 +124,16 @@ def list_activities(
     for snap in snapshots:
         activities.append(_snapshot_to_activity(snap))
     return activities
+
+
+@router.post("/seed/atemporales", response_model=ActivitiesSeedSummary)
+def seed_atemporales(
+    *,
+    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+    overwrite: bool = Query(True, description="Actualiza entradas existentes si ya hay una coincidente"),
+):
+    result = seed_atemporal_activities(overwrite=overwrite)
+    return result
 
 
 @router.get("/{activity_id}", response_model=ActivityOut)
