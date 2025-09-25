@@ -9,6 +9,7 @@ from app.routers import interests, preparation
 from app.routers import profile as profile_router
 from app.routers import ai as ai_router
 from app.routers import voice as voice_router
+from app.routers import activities as activities_router
 from app.database import Base, engine
 # Importa modelos para registrar las tablas en el metadata
 from app import models_interests  # noqa: F401
@@ -94,3 +95,4 @@ app.include_router(preparation.router, prefix="/api")
 app.include_router(profile_router.router, prefix="/api")
 app.include_router(ai_router.router, prefix="/api")
 app.include_router(voice_router.router, prefix="/api")
+app.include_router(activities_router.router, prefix="/api")
