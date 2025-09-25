@@ -7,6 +7,8 @@ from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from app.security import verify_firebase_token
 from app.routers import interests, preparation
 from app.routers import profile as profile_router
+from app.routers import ai as ai_router
+from app.routers import voice as voice_router
 from app.database import Base, engine
 # Importa modelos para registrar las tablas en el metadata
 from app import models_interests  # noqa: F401
@@ -90,3 +92,5 @@ def get_profile(uid: str, user=Depends(verify_firebase_token)):
 app.include_router(interests.router, prefix="/api")
 app.include_router(preparation.router, prefix="/api")
 app.include_router(profile_router.router, prefix="/api")
+app.include_router(ai_router.router, prefix="/api")
+app.include_router(voice_router.router, prefix="/api")

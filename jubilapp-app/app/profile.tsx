@@ -233,93 +233,101 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.avatarRow}>
-        <View style={[styles.avatar, styles.avatarPlaceholder]}>
-          <Text style={{ fontSize: 28 }}>{avatarEmoji || (fullName || email || "?").slice(0,1).toUpperCase()}</Text>
-        </View>
-        <TouchableOpacity style={styles.linkBtn} onPress={() => setShowAvatarPicker(true)} disabled={saving}>
-          <Text style={styles.linkText}>Cambiar icono</Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.label}>Correo</Text>
-      <Text style={styles.readonly}>{email ?? "—"}</Text>
+    <View style={styles.root}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.container}>
+          <View style={styles.avatarRow}>
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={{ fontSize: 28 }}>{avatarEmoji || (fullName || email || "?").slice(0,1).toUpperCase()}</Text>
+            </View>
+            <TouchableOpacity style={styles.linkBtn} onPress={() => setShowAvatarPicker(true)} disabled={saving}>
+              <Text style={styles.linkText}>Cambiar icono</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.label}>Correo</Text>
+          <Text style={styles.readonly}>{email ?? "—"}</Text>
 
-      <Text style={styles.label}>Nombre completo</Text>
-      <TextInput
-        placeholder="Tu nombre"
-        placeholderTextColor={theme.muted}
-        value={fullName}
-        onChangeText={setFullName}
-        style={styles.input}
-      />
+          <Text style={styles.label}>Nombre completo</Text>
+          <TextInput
+            placeholder="Tu nombre"
+            placeholderTextColor={theme.muted}
+            value={fullName}
+            onChangeText={setFullName}
+            style={styles.input}
+          />
 
-      <Text style={styles.label}>Descripción</Text>
-      <TouchableOpacity style={styles.descriptionChip} onPress={openDescriptionEditor} accessibilityRole="button">
-        <Text style={description ? styles.descriptionText : styles.descriptionPlaceholder}>
-          {description ? (description.length > 80 ? `${description.slice(0, 80)}…` : description) : "Añade una breve descripción"}
-        </Text>
-      </TouchableOpacity>
+          <Text style={styles.label}>Descripción</Text>
+          <TouchableOpacity style={styles.descriptionChip} onPress={openDescriptionEditor} accessibilityRole="button">
+            <Text style={description ? styles.descriptionText : styles.descriptionPlaceholder}>
+              {description ? (description.length > 80 ? `${description.slice(0, 80)}…` : description) : "Añade una breve descripción"}
+            </Text>
+          </TouchableOpacity>
 
-      <Text style={[styles.label, { marginTop: 8 }]}>Ubicación</Text>
-      <Text style={{ color: theme.muted, marginBottom: 6 }}>
-        La ubicación solo se usa para recomendar actividades cercanas.
-      </Text>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <TextInput
-          placeholder="Ciudad / Comuna"
-          placeholderTextColor={theme.muted}
-          value={city}
-          onChangeText={setCity}
-          style={[styles.input, { flex: 1 }]}
-        />
-        <TextInput
-          placeholder="Región (opcional)"
-          placeholderTextColor={theme.muted}
-          value={region}
-          onChangeText={setRegion}
-          style={[styles.input, { flex: 1 }]}
-        />
-      </View>
-      <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-        <TouchableOpacity style={[styles.saveBtn, { flex: 1 }]} onPress={async () => {
-          if (!city.trim()) { Alert.alert("Ubicación", "Ingresa al menos la ciudad/comuna."); return; }
-          setSaving(true);
-          try {
-            await updateProfile({ location_city: city.trim(), location_region: region.trim() || undefined });
-            Alert.alert("Ubicación", "Guardada correctamente ✅");
-          } catch (e: any) {
-            Alert.alert("Error", e?.message || "No se pudo guardar");
-          } finally { setSaving(false); }
-        }} disabled={saving}>
-          <Text style={styles.saveText}>{saving ? "Guardando…" : "Guardar ubicación"}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.secondaryBtn, { flex: 1, alignItems: "center", borderWidth: 1, borderColor: theme.primary, borderRadius: 14 }]} onPress={askAndSetCurrentLocation} disabled={saving}>
-          <Text style={[styles.secondaryText, { fontWeight: "800" }]}>Usar mi ubicación actual</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.sectionDivider} />
-      <Text style={styles.label}>Nivel de preparación</Text>
-      <TouchableOpacity style={styles.prepChip} onPress={() => setShowPrepPicker(true)} accessibilityRole="button">
-        <View>
-          <Text style={styles.prepChipTitle}>
-            {preparation ? PREPARATION_OPTIONS.find((o) => o.key === preparation)?.title ?? "Selecciona tu nivel" : "Selecciona tu nivel"}
+          <Text style={[styles.label, { marginTop: 8 }]}>Ubicación</Text>
+          <Text style={{ color: theme.muted, marginBottom: 6 }}>
+            La ubicación solo se usa para recomendar actividades cercanas.
           </Text>
-          <Text style={styles.prepChipSubtitle} numberOfLines={1}>
-            {preparation ? PREPARATION_OPTIONS.find((o) => o.key === preparation)?.description ?? "" : "Tócalo para elegir"}
-          </Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TextInput
+              placeholder="Ciudad / Comuna"
+              placeholderTextColor={theme.muted}
+              value={city}
+              onChangeText={setCity}
+              style={[styles.input, { flex: 1 }]}
+            />
+            <TextInput
+              placeholder="Región (opcional)"
+              placeholderTextColor={theme.muted}
+              value={region}
+              onChangeText={setRegion}
+              style={[styles.input, { flex: 1 }]}
+            />
+          </View>
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+            <TouchableOpacity style={[styles.saveBtn, { flex: 1 }]} onPress={async () => {
+              if (!city.trim()) { Alert.alert("Ubicación", "Ingresa al menos la ciudad/comuna."); return; }
+              setSaving(true);
+              try {
+                await updateProfile({ location_city: city.trim(), location_region: region.trim() || undefined });
+                Alert.alert("Ubicación", "Guardada correctamente ✅");
+              } catch (e: any) {
+                Alert.alert("Error", e?.message || "No se pudo guardar");
+              } finally { setSaving(false); }
+            }} disabled={saving}>
+              <Text style={styles.saveText}>{saving ? "Guardando…" : "Guardar ubicación"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.secondaryBtn, { flex: 1, alignItems: "center", borderWidth: 1, borderColor: theme.primary, borderRadius: 14 }]} onPress={askAndSetCurrentLocation} disabled={saving}>
+              <Text style={[styles.secondaryText, { fontWeight: "800" }]}>Usar mi ubicación actual</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.sectionDivider} />
+          <Text style={styles.label}>Nivel de preparación</Text>
+          <TouchableOpacity style={styles.prepChip} onPress={() => setShowPrepPicker(true)} accessibilityRole="button">
+            <View>
+              <Text style={styles.prepChipTitle}>
+                {preparation ? PREPARATION_OPTIONS.find((o) => o.key === preparation)?.title ?? "Selecciona tu nivel" : "Selecciona tu nivel"}
+              </Text>
+              <Text style={styles.prepChipSubtitle} numberOfLines={1}>
+                {preparation ? PREPARATION_OPTIONS.find((o) => o.key === preparation)?.description ?? "" : "Tócalo para elegir"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.saveBtn} onPress={onSave} disabled={saving}>
+            <Text style={styles.saveText}>{saving ? "Guardando…" : "Guardar cambios"}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push("/interests")}>
+            <Text style={styles.secondaryText}>Editar intereses</Text>
+          </TouchableOpacity>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={theme.primary} />
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.saveBtn} onPress={onSave} disabled={saving}>
-        <Text style={styles.saveText}>{saving ? "Guardando…" : "Guardar cambios"}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push("/interests")}>
-        <Text style={styles.secondaryText}>Editar intereses</Text>
-      </TouchableOpacity>
+      </ScrollView>
 
       <Modal visible={showAvatarPicker} transparent animationType="slide" onRequestClose={() => setShowAvatarPicker(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowAvatarPicker(false)}>
@@ -425,7 +433,9 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.bg },
-  container: { flex: 1, backgroundColor: theme.bg, padding: 16 },
+  root: { flex: 1, backgroundColor: theme.bg },
+  scrollContent: { padding: 16, paddingBottom: 48 },
+  container: { backgroundColor: theme.bg },
   avatarRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 12 },
   avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
   avatarPlaceholder: { alignItems: "center", justifyContent: "center", backgroundColor: theme.border },
