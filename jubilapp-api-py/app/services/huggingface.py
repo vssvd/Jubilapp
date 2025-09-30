@@ -51,6 +51,11 @@ def _normalize(vec: Iterable[float]) -> List[float]:
     return [v / norm for v in values]
 
 
+def get_model_id() -> str:
+    """Expose the model id resolved from configuration."""
+    return _MODEL_ID
+
+
 def embed_texts(texts: Sequence[str], *, normalize: bool = True, retries: int = 2, timeout: float = 30.0) -> List[List[float]]:
     cleaned = [t.strip() for t in texts if t and t.strip()]
     if not cleaned:

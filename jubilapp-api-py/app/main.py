@@ -6,11 +6,13 @@ from firebase_admin import auth as fb_auth
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from app.security import verify_firebase_token
 from app.routers import interests, preparation
+from app.routers import events as events_router
 from app.routers import profile as profile_router
 from app.routers import ai as ai_router
 from app.routers import voice as voice_router
 from app.routers import activities as activities_router
 from app.database import Base, engine
+from app.services.catalog_embeddings import ensure_catalog_embeddings
 # Importa modelos para registrar las tablas en el metadata
 from app import models_interests  # noqa: F401
 
@@ -31,6 +33,11 @@ def init_tables():
         Base.metadata.create_all(bind=engine)
     except Exception:
         # evitar que un fallo menor tumbe la app en dev
+        pass
+    try:
+        ensure_catalog_embeddings()
+    except Exception:
+        # En dev preferimos no tumbar la app si HuggingFace/Firebase falla al iniciar
         pass
 
 @app.get("/health")
@@ -96,3 +103,4 @@ app.include_router(profile_router.router, prefix="/api")
 app.include_router(ai_router.router, prefix="/api")
 app.include_router(voice_router.router, prefix="/api")
 app.include_router(activities_router.router, prefix="/api")
+app.include_router(events_router.router, prefix="/api")

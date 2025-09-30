@@ -1,3 +1,6 @@
+import os
+import secrets
+
 from passlib.context import CryptContext
 from fastapi import Header, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -58,3 +61,11 @@ def get_current_uid(authorization: str = Header(None)) -> str:
     except Exception:
         raise HTTPException(status_code=401, detail="Token inválido")
 
+
+def get_current_uid_or_task(authorization: str = Header(None)) -> str:
+    expected = (os.getenv("SYNC_TASK_TOKEN") or "").strip()
+    if expected and authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        if token and secrets.compare_digest(token, expected):
+            return "scheduler-task"
+    return get_current_uid(authorization)

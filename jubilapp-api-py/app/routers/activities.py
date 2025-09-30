@@ -12,9 +12,11 @@ from app.schemas_activities import (
     ActivityOut,
     ActivityUpdate,
     ActivitiesSeedSummary,
+    ActivitiesSyncSummary,
 )
-from app.security import get_current_uid
+from app.security import get_current_uid, get_current_uid_or_task
 from app.services.activities_seed import seed_atemporal_activities
+from app.services.activities_sync_ics import sync_ics_events
 
 
 router = APIRouter(prefix="/activities", tags=["Activities"])
@@ -133,6 +135,20 @@ def seed_atemporales(
     overwrite: bool = Query(True, description="Actualiza entradas existentes si ya hay una coincidente"),
 ):
     result = seed_atemporal_activities(overwrite=overwrite)
+    return result
+
+
+@router.post("/sync/ics", response_model=ActivitiesSyncSummary)
+async def sync_ics(
+    *,
+    uid: str = Depends(get_current_uid_or_task),  # noqa: ARG001 - acepta token de scheduler o Firebase
+    days_ahead: int = Query(60, ge=1, le=180),
+    free_only: bool = Query(False),
+):
+    try:
+        result = await sync_ics_events(days_ahead=days_ahead, free_only=free_only)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"ICS sync failed: {exc}") from exc
     return result
 
 

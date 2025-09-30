@@ -9,10 +9,7 @@ from app.services.huggingface import (
     HuggingFaceRequestError,
     embed_texts,
 )
-from app.services.interests_catalog import ensure_catalog_firestore, load_catalog
-
-
-InterestRow = Dict[str, Optional[str | int]]
+from app.services.catalog_embeddings import InterestRow, load_interest_embeddings
 
 PREPARATION_REFERENCES: Dict[str, List[str]] = {
     "planificado": [
@@ -29,30 +26,11 @@ PREPARATION_REFERENCES: Dict[str, List[str]] = {
     ],
 }
 
-MIN_INTEREST_SCORE = 0.35
+MIN_INTEREST_SCORE = 0.33
 
 
 def _dot(a: Sequence[float], b: Sequence[float]) -> float:
     return float(sum(x * y for x, y in zip(a, b)))
-
-
-def _catalog_vectors() -> List[Tuple[InterestRow, List[float]]]:
-    ensure_catalog_firestore()
-    catalog = load_catalog()
-    texts = []
-    for row in catalog:
-        category = row.get("category") or ""
-        label = f"{category}: {row['name']}" if category else str(row["name"])
-        texts.append(label)
-
-    vectors = embed_texts(texts)
-    if len(vectors) != len(catalog):
-        raise HuggingFaceRequestError("No se pudieron generar embeddings del catálogo")
-
-    result: List[Tuple[InterestRow, List[float]]] = []
-    for row, vec in zip(catalog, vectors):
-        result.append((row, vec))
-    return result
 
 
 def _interest_suggestions(answers: Sequence[str], top_k: int) -> List[Dict]:
@@ -60,11 +38,12 @@ def _interest_suggestions(answers: Sequence[str], top_k: int) -> List[Dict]:
     if not cleaned:
         return []
 
-    answer_vectors = embed_texts(cleaned)
+    query_payloads = [f"query: {text}" for text in cleaned]
+    answer_vectors = embed_texts(query_payloads)
     if len(answer_vectors) != len(cleaned):
         raise HuggingFaceRequestError("No se pudieron generar embeddings de las respuestas")
 
-    catalog_vectors = _catalog_vectors()
+    catalog_vectors = load_interest_embeddings()
 
     scored: List[Tuple[float, InterestRow]] = []
     for row, vec in catalog_vectors:
@@ -82,7 +61,7 @@ def _interest_suggestions(answers: Sequence[str], top_k: int) -> List[Dict]:
             "id": int(row.get("id") or 0),
             "name": row.get("name") or "",
             "category": row.get("category"),
-            "score": round(float(score), 4),
+            "score": round(float(score), 3),
         })
     # Si ninguna supera el umbral, conserva la mejor para no devolver vacío
     if not suggestions and scored:
@@ -91,7 +70,7 @@ def _interest_suggestions(answers: Sequence[str], top_k: int) -> List[Dict]:
             "id": int(best_row.get("id") or 0),
             "name": best_row.get("name") or "",
             "category": best_row.get("category"),
-            "score": round(float(best_score), 4),
+            "score": round(float(best_score), 3),
         })
     return suggestions
 
@@ -102,7 +81,7 @@ def _preparation_reference_vectors() -> Dict[str, List[List[float]]]:
     for level, phrases in PREPARATION_REFERENCES.items():
         for phrase in phrases:
             rows.append((level, phrase))
-    texts = [r[1] for r in rows]
+    texts = [f"passage: {r[1]}" for r in rows]
     vectors = embed_texts(texts)
     if len(vectors) != len(rows):
         raise HuggingFaceRequestError("No se pudieron generar embeddings de referencia")
@@ -117,7 +96,7 @@ def _classify_preparation(answer: Optional[str]) -> Optional[str]:
     if not text:
         return None
 
-    answer_vecs = embed_texts([text])
+    answer_vecs = embed_texts([f"query: {text}"])
     if not answer_vecs:
         return None
     answer_vec = answer_vecs[0]

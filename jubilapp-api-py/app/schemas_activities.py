@@ -101,3 +101,12 @@ class ActivitiesSeedSummary(BaseModel):
     updated: int
     skipped: int
     total: int
+
+
+class ActivitiesSyncSummary(BaseModel):
+    created: int
+    updated: int
+    skipped: int
+    deleted: int
+    errors: int
+    total: int
