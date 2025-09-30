@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
@@ -18,6 +18,7 @@ class ActivityBase(BaseModel):
     location: Optional[str] = Field(default=None, max_length=255)
     link: str = Field(..., min_length=1, max_length=500)
     origin: str = Field(..., min_length=1, max_length=120)
+    tags: Optional[List[str]] = Field(default=None)
 
     @field_validator("type", "title", "link", "origin", mode="before")
     @classmethod
@@ -38,6 +39,36 @@ class ActivityBase(BaseModel):
             cleaned = value.strip()
             return cleaned or None
         return value
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _normalize_tags(cls, value: object) -> Optional[List[str]]:
+        if value is None:
+            return None
+
+        items: List[str]
+
+        if isinstance(value, str):
+            items = [value]
+        elif isinstance(value, (list, tuple, set)):
+            items = []
+            for item in value:
+                if isinstance(item, str):
+                    items.append(item)
+                else:
+                    raise ValueError("Cada tag debe ser texto")
+        else:
+            raise ValueError("Las tags deben ser una lista de textos")
+
+        cleaned: List[str] = []
+        for item in items:
+            name = item.strip()
+            if not name:
+                continue
+            if name not in cleaned:
+                cleaned.append(name)
+
+        return cleaned or None
 
     model_config = {
         "extra": "forbid",
@@ -62,6 +93,7 @@ class ActivityUpdate(BaseModel):
     location: Optional[str] = Field(default=None, max_length=255)
     link: Optional[str] = Field(default=None, min_length=1, max_length=500)
     origin: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    tags: Optional[List[str]] = Field(default=None)
 
     @field_validator("type", "title", "link", "origin", mode="before")
     @classmethod
@@ -78,6 +110,34 @@ class ActivityUpdate(BaseModel):
             cleaned = value.strip()
             return cleaned or None
         return value
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _normalize_tags(cls, value: object) -> Optional[List[str]]:
+        if value is None:
+            return None
+
+        if isinstance(value, str):
+            candidates = [value]
+        elif isinstance(value, (list, tuple, set)):
+            candidates = []
+            for item in value:
+                if isinstance(item, str):
+                    candidates.append(item)
+                else:
+                    raise ValueError("Cada tag debe ser texto")
+        else:
+            raise ValueError("Las tags deben ser una lista de textos")
+
+        cleaned: List[str] = []
+        for item in candidates:
+            name = item.strip()
+            if not name:
+                continue
+            if name not in cleaned:
+                cleaned.append(name)
+
+        return cleaned or None
 
     model_config = {
         "extra": "forbid",

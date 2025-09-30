@@ -20,6 +20,7 @@ class Venue(BaseModel):
 class EventItem(BaseModel):
     id: str
     title: str
+    description: Optional[str] = None
     start_utc: Optional[str] = None
     end_utc: Optional[str] = None
     url: str

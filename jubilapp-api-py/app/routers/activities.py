@@ -17,6 +17,7 @@ from app.schemas_activities import (
 from app.security import get_current_uid, get_current_uid_or_task
 from app.services.activities_seed import seed_atemporal_activities
 from app.services.activities_sync_ics import sync_ics_events
+from app.services.user_interests import get_user_interest_names
 
 
 router = APIRouter(prefix="/activities", tags=["Activities"])
@@ -41,6 +42,29 @@ def _to_datetime(value: Optional[object]) -> Optional[datetime]:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def _normalize_tags(value: Optional[object]) -> Optional[List[str]]:
+    if value is None:
+        return None
+    candidates: List[str] = []
+    if isinstance(value, str):
+        parts = [chunk.strip() for chunk in value.split(",")]
+        for text in parts:
+            if text and text not in candidates:
+                candidates.append(text)
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, str):
+                text = item.strip()
+                if "," in text:
+                    for chunk in (segment.strip() for segment in text.split(",")):
+                        if chunk and chunk not in candidates:
+                            candidates.append(chunk)
+                    continue
+                if text and text not in candidates:
+                    candidates.append(text)
+    return candidates or None
+
+
 def _snapshot_to_activity(snapshot) -> ActivityOut:
     data = snapshot.to_dict() or {}
 
@@ -57,6 +81,7 @@ def _snapshot_to_activity(snapshot) -> ActivityOut:
         "link": data.get("link"),
         "origin": data.get("origin"),
         "created_at": created_at or datetime.now(timezone.utc),
+        "tags": _normalize_tags(data.get("tags")),
     }
 
     return ActivityOut.model_validate(payload)
@@ -91,6 +116,15 @@ def list_activities(
     category: Optional[str] = Query(None),
     origin: Optional[str] = Query(None),
     activity_type: Optional[str] = Query(None, alias="type"),
+    interests: Optional[List[str]] = Query(
+        None,
+        description="Filtra por nombres de intereses; puede repetirse",
+    ),
+    match_my_interests: bool = Query(
+        False,
+        alias="matchMyInterests",
+        description="Si es true, usa los intereses del usuario autenticado",
+    ),
     from_date: Optional[datetime] = Query(None, alias="fromDate"),
     to_date: Optional[datetime] = Query(None, alias="toDate"),
     limit: int = Query(50, ge=1, le=200),
@@ -104,6 +138,19 @@ def list_activities(
         query = query.where("origin", "==", origin)
     if activity_type := _normalize_text(activity_type):
         query = query.where("type", "==", activity_type)
+
+    interest_filters: Optional[List[str]] = None
+    if interests or match_my_interests:
+        raw_filters: List[str] = []
+        if interests:
+            raw_filters.extend(interests)
+        if match_my_interests:
+            raw_filters.extend(get_user_interest_names(uid))
+        interest_filters = _normalize_tags(raw_filters)
+        if interest_filters:
+            if len(interest_filters) > 10:
+                raise HTTPException(status_code=400, detail="Máximo 10 intereses por consulta")
+            query = query.where("tags", "array_contains_any", interest_filters)
 
     from_dt = _to_datetime(from_date)
     to_dt = _to_datetime(to_date)

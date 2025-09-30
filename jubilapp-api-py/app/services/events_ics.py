@@ -103,7 +103,8 @@ async def _parse_event(
     name = getattr(raw_event, "name", None) or "Evento"
     title = name.strip() if isinstance(name, str) else "Evento"
 
-    description = getattr(raw_event, "description", None) or ""
+    description_raw = getattr(raw_event, "description", None)
+    description = description_raw.strip() if isinstance(description_raw, str) else ""
     location_text_raw = getattr(raw_event, "location", None)
     location_text = location_text_raw.strip() if isinstance(location_text_raw, str) else ""
 
@@ -144,6 +145,7 @@ async def _parse_event(
     item = EventItem(
         id=_make_id(str(feed.get("name", "feed")), start.isoformat(), title),
         title=title or "Evento",
+        description=description or None,
         start_utc=start.isoformat(),
         end_utc=end.isoformat() if end else None,
         url=url,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from firebase_admin import firestore
 
@@ -48,6 +48,60 @@ def _source_feed_from_id(event_id: str) -> Optional[str]:
     return parts[1] if len(parts) > 1 else None
 
 
+KEYWORD_INTERESTS: List[tuple[str, str]] = [
+    ("yoga", "Gimnasia suave / yoga / pilates"),
+    ("pilates", "Gimnasia suave / yoga / pilates"),
+    ("camin", "Caminatas / trekking"),
+    ("trek", "Caminatas / trekking"),
+    ("museo", "Museos, teatro, cine"),
+    ("teatro", "Museos, teatro, cine"),
+    ("cine", "Museos, teatro, cine"),
+    ("concierto", "Música (escuchar, cantar, tocar instrumento)"),
+    ("musica", "Música (escuchar, cantar, tocar instrumento)"),
+    ("baile", "Baile"),
+    ("danza", "Baile"),
+    ("gastr", "Gastronomía (recetas, restaurantes)"),
+    ("feria", "Eventos culturales y ferias"),
+    ("expos", "Eventos culturales y ferias"),
+    ("volunt", "Voluntariado"),
+    ("salud", "Control de salud / chequeos"),
+    ("medit", "Meditación / mindfulness"),
+]
+
+FEED_DEFAULT_INTERESTS = {
+    "jubilapp eventos": ["Eventos culturales y ferias"],
+}
+
+
+def _event_interest_tags(event: EventItem) -> Optional[List[str]]:
+    haystack_parts: List[str] = []
+    if event.title:
+        haystack_parts.append(event.title)
+    if event.description:
+        haystack_parts.append(event.description)
+    if event.venue:
+        if event.venue.name:
+            haystack_parts.append(event.venue.name)
+        if event.venue.address:
+            haystack_parts.append(event.venue.address)
+
+    haystack = " ".join(haystack_parts).lower()
+    tags: List[str] = []
+    for keyword, interest in KEYWORD_INTERESTS:
+        if keyword in haystack and interest not in tags:
+            tags.append(interest)
+        if len(tags) >= 3:
+            break
+
+    if not tags:
+        feed = (_source_feed_from_id(event.id) or "").lower()
+        defaults = FEED_DEFAULT_INTERESTS.get(feed)
+        if defaults:
+            tags.extend(defaults[:3])
+
+    return tags or None
+
+
 def _event_payload(event: EventItem) -> Dict[str, object]:
     start_dt = _parse_datetime(event.start_utc)
     if start_dt is None:
@@ -61,6 +115,7 @@ def _event_payload(event: EventItem) -> Dict[str, object]:
         "location": event.venue.address if event.venue and event.venue.address else event.venue.name if event.venue else None,
         "link": event.url,
         "origin": "ics",
+        "description": event.description,
         "isFree": event.is_free,
         "currency": event.currency,
         "minPrice": event.min_price,
@@ -79,6 +134,10 @@ def _event_payload(event: EventItem) -> Dict[str, object]:
             "lat": event.venue.lat,
             "lng": event.venue.lng,
         }
+
+    tags = _event_interest_tags(event)
+    if tags:
+        payload["tags"] = tags
 
     return {key: value for key, value in payload.items() if value is not None}
 

@@ -1,16 +1,18 @@
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Pressable, ActivityIndicator, Alert } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { theme } from "../src/lib/theme";
 import BottomNav from "../components/BottomNav";
 import { fetchProfile } from "../src/api/profile";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { fetchAtemporalRecommendations } from "../src/api/recommendations";
 
 type Activity = { id: string; title: string; time: string; emoji: string; done: boolean };
 type Notif = { id: string; text: string; time: string; read: boolean };
 
 export default function Home() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ onboard?: string }>();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState<string | null>(null);
   const [items, setItems] = useState<Activity[]>([]);
@@ -20,6 +22,11 @@ export default function Home() {
     { id: "n2", text: "🌟 Cada día es una nueva oportunidad para aprender.", time: "ayer 18:10", read: false },
     { id: "n3", text: "🎉 Bien hecho, completaste tu primera actividad.", time: "ayer 17:45", read: true },
   ]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+  const startGenerating = useRef(params.onboard === "1");
+  const [generationStage, setGenerationStage] = useState<"idle" | "loading" | "ready">(
+    startGenerating.current ? "loading" : "idle",
+  );
 
   useEffect(() => {
     (async () => {
@@ -31,13 +38,45 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    // mock sugerencias por ahora
-    setItems([
-      { id: "1", title: "Yoga suave", time: "10:00", emoji: "🧘", done: false },
-      { id: "2", title: "Club de lectura", time: "16:00", emoji: "📚", done: false },
-      { id: "3", title: "Pintura creativa", time: "17:30", emoji: "🎨", done: false },
-      { id: "4", title: "Caminata ligera", time: "19:00", emoji: "🚶", done: false },
-    ]);
+    const mapTime = (time?: string | null, tod?: string | null) => {
+      if (time && time.trim()) return time.trim();
+      switch (tod) {
+        case "manana":
+          return "Mañana";
+        case "tarde":
+          return "Tarde";
+        case "noche":
+          return "Noche";
+        default:
+          return "Cualquier horario";
+      }
+    };
+
+    const loadSuggestions = async () => {
+      setLoadingActivities(true);
+      try {
+        const recs = await fetchAtemporalRecommendations(6);
+        setItems(
+          recs.map((activity) => ({
+            id: String(activity.id),
+            title: activity.title,
+            time: mapTime(activity.suggested_time, activity.time_of_day),
+            emoji: activity.emoji || "🌟",
+            done: false,
+          })),
+        );
+      } catch (error) {
+        Alert.alert("Rutina", "No pudimos cargar tus recomendaciones. Inténtalo nuevamente en unos minutos.");
+        setItems([]);
+      } finally {
+        setLoadingActivities(false);
+        if (startGenerating.current) {
+          setTimeout(() => setGenerationStage("ready"), 600);
+        }
+      }
+    };
+
+    loadSuggestions();
   }, []);
 
   const greeting = useMemo(() => {
@@ -52,6 +91,14 @@ export default function Home() {
 
   const toggleItem = (id: string) => {
     setItems(prev => prev.map(i => (i.id === id ? { ...i, done: !i.done } : i)));
+  };
+
+  const handleContinue = () => {
+    startGenerating.current = false;
+    setGenerationStage("idle");
+    if (params.onboard === "1") {
+      router.replace("/home");
+    }
   };
 
   return (
@@ -73,24 +120,36 @@ export default function Home() {
       </Text>
       <Text style={[styles.subtitle, { textAlign: "center", marginBottom: 6 }]}>Estas son tus actividades de hoy</Text>
 
-      <FlatList
-        data={items}
-        keyExtractor={(i) => i.id}
-        contentContainerStyle={{ paddingVertical: 12, paddingHorizontal: 4 }}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => toggleItem(item.id)} accessibilityRole="button">
-            <View style={[styles.check, item.done && styles.checkDone]}>
-              <Text style={{ fontSize: 16 }}>{item.done ? "✅" : "⭕"}</Text>
-            </View>
-            <Text style={styles.emoji}>{item.emoji}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardTime}>{item.time}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
+      {loadingActivities ? (
+        <View style={styles.listLoading}>
+          <ActivityIndicator color={theme.primary} size="large" />
+          <Text style={styles.loadingText}>Preparando tus recomendaciones…</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(i) => i.id}
+          contentContainerStyle={{ paddingVertical: 12, paddingHorizontal: 4 }}
+          ListEmptyComponent={(
+            <Text style={styles.emptyState}>
+              Aún no tenemos actividades para mostrar. Ajusta tus intereses o inténtalo más tarde.
+            </Text>
+          )}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.card} onPress={() => toggleItem(item.id)} accessibilityRole="button">
+              <View style={[styles.check, item.done && styles.checkDone]}>
+                <Text style={{ fontSize: 16 }}>{item.done ? "✅" : "⭕"}</Text>
+              </View>
+              <Text style={styles.emoji}>{item.emoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardTime}>{item.time}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+      )}
 
       <Text style={styles.progress}>Has completado {completed} de {items.length} actividades hoy 🎉</Text>
 
@@ -121,6 +180,31 @@ export default function Home() {
           </Pressable>
         </Pressable>
       )}
+
+      {generationStage !== "idle" && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            {generationStage === "loading" ? (
+              <>
+                <ActivityIndicator color={theme.primary} size="large" />
+                <Text style={styles.overlayTitle}>Generando rutina personalizada…</Text>
+                <Text style={styles.overlaySubtitle}>
+                  Analizando tus intereses y nivel de preparación.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.overlayEmoji}>✅</Text>
+                <Text style={styles.overlayTitle}>¡Rutina personalizada lista!</Text>
+                <Text style={styles.overlaySubtitle}>Tenemos actividades pensadas especialmente para ti.</Text>
+                <TouchableOpacity style={styles.overlayButton} onPress={handleContinue}>
+                  <Text style={styles.overlayButtonText}>Continuar</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -133,12 +217,15 @@ const styles = StyleSheet.create({
   badge: { position: "absolute", top: 0, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ef4444" },
   greeting: { fontFamily: "MontserratSemiBold", color: "#111827", fontSize: 24, marginTop: 8 },
   subtitle: { color: "#4B5563", fontFamily: "NunitoRegular", marginTop: 4 },
+  listLoading: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 32 },
+  loadingText: { marginTop: 12, color: "#4B5563", fontFamily: "NunitoRegular" },
   card: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#E5E7EB" },
   check: { width: 28, alignItems: "center" },
   checkDone: {},
   emoji: { fontSize: 28 },
   cardTitle: { fontFamily: "MontserratSemiBold", color: theme.text, fontSize: 18 },
   cardTime: { color: "#4B5563", fontFamily: "NunitoRegular", marginTop: 2 },
+  emptyState: { textAlign: "center", color: "#4B5563", fontFamily: "NunitoRegular", paddingVertical: 40, paddingHorizontal: 16 },
   progress: { textAlign: "center", marginTop: 8, marginBottom: 6, color: "#065f46", fontFamily: "NunitoRegular" },
   overlay: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.15)", justifyContent: "flex-start", alignItems: "center" },
   panel: { marginTop: 80, backgroundColor: "#fff", borderRadius: 16, padding: 14, width: "92%", borderWidth: 1, borderColor: "#E5E7EB" },
@@ -150,4 +237,36 @@ const styles = StyleSheet.create({
   notifTime: { color: "#6B7280", fontFamily: "NunitoRegular", fontSize: 12 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#D1D5DB" },
   dotUnread: { backgroundColor: "#10B981" },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(17, 24, 39, 0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  loadingCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    width: "85%",
+    maxWidth: 360,
+    alignItems: "center",
+    gap: 16,
+  },
+  overlayEmoji: { fontSize: 38 },
+  overlayTitle: { fontFamily: "MontserratSemiBold", fontSize: 20, textAlign: "center", color: theme.text },
+  overlaySubtitle: { textAlign: "center", color: "#4B5563", fontFamily: "NunitoRegular" },
+  overlayButton: {
+    marginTop: 4,
+    backgroundColor: theme.primary,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+  },
+  overlayButtonText: { color: "#fff", fontFamily: "MontserratSemiBold", fontSize: 16 },
 });

@@ -11,6 +11,7 @@ from app.routers import profile as profile_router
 from app.routers import ai as ai_router
 from app.routers import voice as voice_router
 from app.routers import activities as activities_router
+from app.routers import recommendations as recommendations_router
 from app.database import Base, engine
 from app.services.catalog_embeddings import ensure_catalog_embeddings
 # Importa modelos para registrar las tablas en el metadata
@@ -104,3 +105,4 @@ app.include_router(ai_router.router, prefix="/api")
 app.include_router(voice_router.router, prefix="/api")
 app.include_router(activities_router.router, prefix="/api")
 app.include_router(events_router.router, prefix="/api")
+app.include_router(recommendations_router.router, prefix="/api")
