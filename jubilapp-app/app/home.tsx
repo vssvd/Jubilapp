@@ -7,7 +7,14 @@ import { fetchProfile } from "../src/api/profile";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchAtemporalRecommendations } from "../src/api/recommendations";
 
-type Activity = { id: string; title: string; time: string; emoji: string; done: boolean };
+type Activity = {
+  id: string;
+  title: string;
+  emoji: string;
+  done: boolean;
+  isFallback?: boolean;
+  category?: string | null;
+};
 type Notif = { id: string; text: string; time: string; read: boolean };
 
 export default function Home() {
@@ -38,20 +45,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const mapTime = (time?: string | null, tod?: string | null) => {
-      if (time && time.trim()) return time.trim();
-      switch (tod) {
-        case "manana":
-          return "Mañana";
-        case "tarde":
-          return "Tarde";
-        case "noche":
-          return "Noche";
-        default:
-          return "Cualquier horario";
-      }
-    };
-
     const loadSuggestions = async () => {
       setLoadingActivities(true);
       try {
@@ -60,9 +53,10 @@ export default function Home() {
           recs.map((activity) => ({
             id: String(activity.id),
             title: activity.title,
-            time: mapTime(activity.suggested_time, activity.time_of_day),
             emoji: activity.emoji || "🌟",
             done: false,
+            isFallback: activity.is_fallback ?? false,
+            category: activity.category ?? null,
           })),
         );
       } catch (error) {
@@ -90,7 +84,11 @@ export default function Home() {
   const unread = notifs.filter(n => !n.read).length;
 
   const toggleItem = (id: string) => {
-    setItems(prev => prev.map(i => (i.id === id ? { ...i, done: !i.done } : i)));
+    setItems(prev => prev.map(i => {
+      if (i.id !== id) return i;
+      if (i.isFallback) return i;
+      return { ...i, done: !i.done };
+    }));
   };
 
   const handleContinue = () => {
@@ -137,14 +135,34 @@ export default function Home() {
           )}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => toggleItem(item.id)} accessibilityRole="button">
+            <TouchableOpacity
+              style={[styles.card, item.isFallback ? styles.cardFallback : undefined]}
+              onPress={() => toggleItem(item.id)}
+              accessibilityRole="button"
+              disabled={item.isFallback}
+            >
               <View style={[styles.check, item.done && styles.checkDone]}>
                 <Text style={{ fontSize: 16 }}>{item.done ? "✅" : "⭕"}</Text>
               </View>
               <Text style={styles.emoji}>{item.emoji}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardTime}>{item.time}</Text>
+                {!item.isFallback && item.category && (
+                  <Text style={styles.categoryPill}>🎯 {item.category}</Text>
+                )}
+                {item.isFallback && (
+                  <Text style={styles.fallbackText}>Agrega más intereses para recibir ideas nuevas.</Text>
+                )}
+                {item.isFallback && (
+                  <TouchableOpacity
+                    style={styles.fallbackButton}
+                    onPress={() => router.push("/interests")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Editar intereses"
+                  >
+                    <Text style={styles.fallbackButtonText}>Editar intereses</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </TouchableOpacity>
           )}
@@ -220,11 +238,32 @@ const styles = StyleSheet.create({
   listLoading: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 32 },
   loadingText: { marginTop: 12, color: "#4B5563", fontFamily: "NunitoRegular" },
   card: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#E5E7EB" },
+  cardFallback: { backgroundColor: "#FFFBEB", borderColor: "#FBBF24" },
   check: { width: 28, alignItems: "center" },
   checkDone: {},
   emoji: { fontSize: 28 },
   cardTitle: { fontFamily: "MontserratSemiBold", color: theme.text, fontSize: 18 },
-  cardTime: { color: "#4B5563", fontFamily: "NunitoRegular", marginTop: 2 },
+  categoryPill: {
+    marginTop: 4,
+    alignSelf: "flex-start",
+    backgroundColor: "#F3F4F6",
+    color: "#4B5563",
+    fontFamily: "NunitoRegular",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontSize: 13,
+  },
+  fallbackText: { color: "#92400e", fontFamily: "NunitoRegular", marginTop: 4 },
+  fallbackButton: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    backgroundColor: "#F59E0B",
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  fallbackButtonText: { color: "#fff", fontFamily: "MontserratSemiBold", fontSize: 14 },
   emptyState: { textAlign: "center", color: "#4B5563", fontFamily: "NunitoRegular", paddingVertical: 40, paddingHorizontal: 16 },
   progress: { textAlign: "center", marginTop: 8, marginBottom: 6, color: "#065f46", fontFamily: "NunitoRegular" },
   overlay: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.15)", justifyContent: "flex-start", alignItems: "center" },

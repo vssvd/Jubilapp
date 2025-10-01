@@ -36,18 +36,34 @@ ATEMPORAL_ACTIVITIES: List[Dict] = [
     {"id": 27, "title": "Sesión corta de natación", "emoji": "🏊", "tags": ["Natación"], "indoor": False, "energy": "alta", "duration_min": 30, "cost": "medio", "time_of_day": "tarde"},
     {"id": 28, "title": "Pesca en lago o río", "emoji": "🎣", "tags": ["Pesca"], "indoor": False, "energy": "baja", "duration_min": 90, "cost": "medio", "time_of_day": "manana"},
     {"id": 29, "title": "Armar un rompecabezas", "emoji": "🧩", "tags": ["Juegos de mesa / lógica"], "indoor": True, "energy": "baja", "duration_min": 40, "cost": "bajo", "time_of_day": "tarde"},
-    {"id": 30, "title": "Escuchar un pódcast educativo", "emoji": "🎧", "tags": ["Escucha / aprendizaje", "Tecnología (apps, redes sociales)"], "indoor": True, "energy": "baja", "duration_min": 25, "cost": "gratis", "time_of_day": "mañana"},
+    {"id": 30, "title": "Escuchar un pódcast educativo", "emoji": "🎧", "tags": ["Escucha / aprendizaje", "Tecnología (apps, redes sociales)"], "indoor": True, "energy": "baja", "duration_min": 25, "cost": "gratis", "time_of_day": "manana"},
     {"id": 31, "title": "Escribir una carta a alguien especial", "emoji": "💌", "tags": ["Escritura / lectura creativa"], "indoor": True, "energy": "baja", "duration_min": 20, "cost": "gratis", "time_of_day": "tarde"},
-    {"id": 32, "title": "Dar de comer a aves en la plaza", "emoji": "🐦", "tags": ["Naturaleza", "Actividades al aire libre"], "indoor": False, "energy": "baja", "duration_min": 15, "cost": "bajo", "time_of_day": "mañana"},
+    {"id": 32, "title": "Dar de comer a aves en la plaza", "emoji": "🐦", "tags": ["Naturaleza", "Actividades al aire libre"], "indoor": False, "energy": "baja", "duration_min": 15, "cost": "bajo", "time_of_day": "manana"},
     {"id": 33, "title": "Aprender un truco de cocina nuevo", "emoji": "🍳", "tags": ["Cocina creativa"], "indoor": True, "energy": "media", "duration_min": 30, "cost": "medio", "time_of_day": "tarde"},
     {"id": 34, "title": "Hacer manualidades simples", "emoji": "✂️", "tags": ["Manualidades / DIY"], "indoor": True, "energy": "media", "duration_min": 40, "cost": "bajo", "time_of_day": "tarde"},
     {"id": 35, "title": "Escribir tu lista de agradecimientos", "emoji": "🙏", "tags": ["Reflexión personal / mindfulness"], "indoor": True, "energy": "baja", "duration_min": 15, "cost": "gratis", "time_of_day": "noche"},
     {"id": 36, "title": "Aprender pasos básicos de baile folklórico", "emoji": "🪗", "tags": ["Baile", "Cultura local"], "indoor": True, "energy": "media", "duration_min": 25, "cost": "gratis", "time_of_day": "tarde"},
-    {"id": 37, "title": "Hacer una caminata fotográfica", "emoji": "📸", "tags": ["Fotografía", "Caminatas / trekking"], "indoor": False, "energy": "media", "duration_min": 45, "cost": "gratis", "time_of_day": "mañana"},
-    {"id": 38, "title": "Resolver un crucigrama o sudoku", "emoji": "📝", "tags": ["Juegos de lógica / palabras"], "indoor": True, "energy": "baja", "duration_min": 20, "cost": "gratis", "time_of_day": "mañana"},
+    {"id": 37, "title": "Hacer una caminata fotográfica", "emoji": "📸", "tags": ["Fotografía", "Caminatas / trekking"], "indoor": False, "energy": "media", "duration_min": 45, "cost": "gratis", "time_of_day": "manana"},
+    {"id": 38, "title": "Resolver un crucigrama o sudoku", "emoji": "📝", "tags": ["Juegos de lógica / palabras"], "indoor": True, "energy": "baja", "duration_min": 20, "cost": "gratis", "time_of_day": "manana"},
     {"id": 39, "title": "Visitar una feria artesanal", "emoji": "🛍️", "tags": ["Cultura local", "Manualidades / artesanía"], "indoor": False, "energy": "media", "duration_min": 60, "cost": "medio", "time_of_day": "tarde"},
-    {"id": 40, "title": "Preparar jugos o batidos naturales", "emoji": "🥤", "tags": ["Cocina saludable"], "indoor": True, "energy": "media", "duration_min": 20, "cost": "bajo", "time_of_day": "mañana"},
+    {"id": 40, "title": "Preparar jugos o batidos naturales", "emoji": "🥤", "tags": ["Cocina saludable"], "indoor": True, "energy": "media", "duration_min": 20, "cost": "bajo", "time_of_day": "manana"},
 ]
+
+
+FALLBACK_ACTIVITY: Dict = {
+    "id": -1,
+    "title": "Amplía tus intereses para ver más actividades personalizadas",
+    "emoji": "🧭",
+    "tags": [],
+    "indoor": True,
+    "energy": "baja",
+    "duration_min": 15,
+    "cost": "gratis",
+    "time_of_day": "cualquiera",
+    "suggested_time": "16:00",
+    "is_fallback": True,
+    "category": None,
+}
 
 
 def _energy_weight(level: Optional[str], energy: str) -> int:
@@ -87,7 +103,11 @@ def recommend_atemporales(
 
     scored = []
     for a in ATEMPORAL_ACTIVITIES:
-        overlap = len(names.intersection(set(a.get("tags", []))))
+        tags = set(a.get("tags", []))
+        overlap = len(names.intersection(tags))
+        if overlap == 0:
+            continue
+
         base = overlap * 10  # match de intereses pesa fuerte
 
         score = base
@@ -105,9 +125,6 @@ def recommend_atemporales(
 
         scored.append((score, a))
 
-    scored.sort(key=lambda x: x[0], reverse=True)
-    out = [s[1] for s in scored[: max(1, limit)]]
-
     # Recomendar hora sugerida por time_of_day si no viene
     def suggest_time(tod: str) -> str:
         return {
@@ -116,9 +133,26 @@ def recommend_atemporales(
             "noche": "19:00",
         }.get(tod, "16:00")
 
-    for a in out:
-        if not a.get("suggested_time"):
-            a["suggested_time"] = suggest_time(a.get("time_of_day", "cualquiera"))
+    def prepare(activity: Dict) -> Dict:
+        item = {**activity}
+        if "tags" in activity:
+            item["tags"] = list(activity["tags"])
+        if not item.get("suggested_time"):
+            item["suggested_time"] = suggest_time(item.get("time_of_day", "cualquiera"))
+        if not item.get("category"):
+            tags_list = item.get("tags") or []
+            item["category"] = next((t for t in tags_list if isinstance(t, str) and t.strip()), None)
+        item.setdefault("is_fallback", False)
+        return item
 
-    return out
+    if not scored:
+        return [prepare(FALLBACK_ACTIVITY)]
 
+    scored.sort(key=lambda x: x[0], reverse=True)
+    limit = max(1, limit)
+
+    results: List[Dict] = []
+    for _, activity in scored[:limit]:
+        results.append(prepare(activity))
+
+    return results

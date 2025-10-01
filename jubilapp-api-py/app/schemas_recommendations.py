@@ -17,8 +17,9 @@ class AtemporalActivityOut(BaseModel):
     cost: CostLevel
     time_of_day: TimeOfDay
     suggested_time: Optional[str] = None
+    is_fallback: bool = False
+    category: Optional[str] = None
 
 
 class AtemporalRecommendationsOut(BaseModel):
     activities: List[AtemporalActivityOut]
-

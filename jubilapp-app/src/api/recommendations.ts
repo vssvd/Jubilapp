@@ -15,6 +15,8 @@ export type AtemporalActivity = {
   cost: CostLevel;
   time_of_day: TimeOfDay;
   suggested_time?: string | null;
+  is_fallback?: boolean;
+  category?: string | null;
 };
 
 export async function fetchAtemporalRecommendations(limit = 8): Promise<AtemporalActivity[]> {
@@ -23,4 +25,3 @@ export async function fetchAtemporalRecommendations(limit = 8): Promise<Atempora
   );
   return data.activities;
 }
-
