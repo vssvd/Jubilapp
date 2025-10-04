@@ -1,12 +1,20 @@
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Pressable, ActivityIndicator, Alert, Linking } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { theme } from "../src/lib/theme";
 import BottomNav from "../components/BottomNav";
 import { fetchProfile } from "../src/api/profile";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchAtemporalRecommendations } from "../src/api/recommendations";
-import { fetchUpcomingEvents, ActivityEvent } from "../src/api/activities";
+import {
+  fetchUpcomingEvents,
+  ActivityEvent,
+  createHistoryEntry,
+  deleteHistoryEntry,
+  fetchActivityHistory,
+  ActivityHistoryEntry,
+} from "../src/api/activities";
 
 type Activity = {
   id: string;
@@ -15,6 +23,9 @@ type Activity = {
   done: boolean;
   isFallback?: boolean;
   category?: string | null;
+  tags?: string[] | null;
+  historyId?: string | null;
+  pending?: boolean;
 };
 type Notif = { id: string; text: string; time: string; read: boolean };
 
@@ -86,6 +97,8 @@ export default function Home() {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const startGenerating = useRef(params.onboard === "1");
+  const lastLoadedDate = useRef<string | null>(null);
+  const LOADING_SENTINEL = "__loading__";
   const [generationStage, setGenerationStage] = useState<"idle" | "loading" | "ready">(
     startGenerating.current ? "loading" : "idle",
   );
@@ -99,34 +112,88 @@ export default function Home() {
     })();
   }, []);
 
-  useEffect(() => {
-    const loadSuggestions = async () => {
-      setLoadingActivities(true);
+  const fetchTodayHistory = useCallback(async (): Promise<ActivityHistoryEntry[]> => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return fetchActivityHistory({
+      fromDate: start.toISOString(),
+      toDate: end.toISOString(),
+      limit: 200,
+    });
+  }, []);
+
+  const loadSuggestions = useCallback(async () => {
+    setLoadingActivities(true);
+    lastLoadedDate.current = LOADING_SENTINEL;
+    let succeeded = false;
+    try {
+      const recs = await fetchAtemporalRecommendations(6);
+      let todayHistory: ActivityHistoryEntry[] = [];
       try {
-        const recs = await fetchAtemporalRecommendations(6);
-        setItems(
-          recs.map((activity) => ({
-            id: String(activity.id),
+        todayHistory = await fetchTodayHistory();
+      } catch {
+        todayHistory = [];
+      }
+
+      const historyByActivity = new Map<string, ActivityHistoryEntry>();
+      todayHistory.forEach(entry => {
+        if (entry.activityId) {
+          historyByActivity.set(entry.activityId, entry);
+        }
+      });
+
+      setItems(
+        recs.map((activity) => {
+          const key = String(activity.id);
+          const matched = historyByActivity.get(key);
+          return {
+            id: key,
             title: activity.title,
             emoji: activity.emoji || "🌟",
-            done: false,
+            done: Boolean(matched),
             isFallback: activity.is_fallback ?? false,
             category: activity.category ?? null,
-          })),
-        );
-      } catch (error) {
-        Alert.alert("Rutina", "No pudimos cargar tus recomendaciones. Inténtalo nuevamente en unos minutos.");
-        setItems([]);
-      } finally {
-        setLoadingActivities(false);
-        if (startGenerating.current) {
+            tags: activity.tags ?? null,
+            historyId: matched?.id ?? null,
+            pending: false,
+          };
+        }),
+      );
+      succeeded = true;
+    } catch {
+      Alert.alert("Rutina", "No pudimos cargar tus recomendaciones. Inténtalo nuevamente en unos minutos.");
+      setItems([]);
+    } finally {
+      setLoadingActivities(false);
+      lastLoadedDate.current = succeeded ? new Date().toDateString() : null;
+      if (startGenerating.current) {
+        if (succeeded) {
           setTimeout(() => setGenerationStage("ready"), 600);
+        } else {
+          setGenerationStage("idle");
+          startGenerating.current = false;
         }
       }
-    };
+    }
+  }, [fetchTodayHistory]);
 
+  useEffect(() => {
     loadSuggestions();
-  }, []);
+  }, [loadSuggestions]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const todayKey = new Date().toDateString();
+      if (lastLoadedDate.current === LOADING_SENTINEL) {
+        return;
+      }
+      if (!lastLoadedDate.current || lastLoadedDate.current !== todayKey) {
+        loadSuggestions();
+      }
+    }, [loadSuggestions]),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -168,12 +235,45 @@ export default function Home() {
   const completed = items.filter(i => i.done).length;
   const unread = notifs.filter(n => !n.read).length;
 
-  const toggleItem = (id: string) => {
-    setItems(prev => prev.map(i => {
-      if (i.id !== id) return i;
-      if (i.isFallback) return i;
-      return { ...i, done: !i.done };
-    }));
+  const toggleItem = async (id: string) => {
+    const current = items.find(i => i.id === id);
+    if (!current) return;
+    if (current.pending) return;
+    if (current.isFallback) return;
+
+    const markAsDone = !current.done;
+
+    if (markAsDone) {
+      setItems(prev => prev.map(i => (i.id === id ? { ...i, done: true, pending: true } : i)));
+      try {
+        const entry = await createHistoryEntry({
+          activityId: current.id,
+          title: current.title,
+          emoji: current.emoji,
+          category: current.category ?? null,
+          type: "atemporal",
+          origin: "rutina-diaria",
+          completedAt: new Date().toISOString(),
+          tags: current.tags ?? null,
+        });
+        setItems(prev => prev.map(i => (i.id === id ? { ...i, historyId: entry.id, pending: false, done: true } : i)));
+      } catch {
+        setItems(prev => prev.map(i => (i.id === id ? { ...i, done: false, pending: false } : i)));
+        Alert.alert("Historial", "No pudimos registrar la actividad. Inténtalo nuevamente.");
+      }
+    } else {
+      const historyId = current.historyId;
+      setItems(prev => prev.map(i => (i.id === id ? { ...i, done: false, pending: true } : i)));
+      try {
+        if (historyId) {
+          await deleteHistoryEntry(historyId);
+        }
+        setItems(prev => prev.map(i => (i.id === id ? { ...i, historyId: null, pending: false, done: false } : i)));
+      } catch {
+        setItems(prev => prev.map(i => (i.id === id ? { ...i, done: true, pending: false } : i)));
+        Alert.alert("Historial", "No pudimos actualizar el historial. Inténtalo nuevamente.");
+      }
+    }
   };
 
   const openEventLink = useCallback((url: string) => {
@@ -273,10 +373,14 @@ export default function Home() {
               style={[styles.card, item.isFallback ? styles.cardFallback : undefined]}
               onPress={() => toggleItem(item.id)}
               accessibilityRole="button"
-              disabled={item.isFallback}
+              disabled={item.isFallback || item.pending}
             >
-              <View style={[styles.check, item.done && styles.checkDone]}>
-                <Text style={{ fontSize: 16 }}>{item.done ? "✅" : "⭕"}</Text>
+              <View style={[styles.check, item.done && styles.checkDone, item.pending && styles.checkPending]}>
+                {item.pending ? (
+                  <ActivityIndicator size="small" color={item.done ? "#FFFFFF" : "#0f766e"} />
+                ) : (
+                  <Text style={{ fontSize: 16 }}>{item.done ? "✅" : "⭕"}</Text>
+                )}
               </View>
               <Text style={styles.emoji}>{item.emoji}</Text>
               <View style={{ flex: 1 }}>
@@ -384,8 +488,9 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 12, color: "#4B5563", fontFamily: "NunitoRegular" },
   card: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#E5E7EB" },
   cardFallback: { backgroundColor: "#FFFBEB", borderColor: "#FBBF24" },
-  check: { width: 28, alignItems: "center" },
+  check: { width: 28, alignItems: "center", justifyContent: "center" },
   checkDone: {},
+  checkPending: { opacity: 0.8 },
   emoji: { fontSize: 28 },
   cardTitle: { fontFamily: "MontserratSemiBold", color: theme.text, fontSize: 18 },
   categoryPill: {

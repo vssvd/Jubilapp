@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native
 import { useRouter } from "expo-router";
 import { theme } from "../src/lib/theme";
 
-type TabKey = "home" | "calendar" | "community" | "profile";
+type TabKey = "home" | "calendar" | "history" | "profile";
 
 export default function BottomNav({ active }: { active: TabKey }) {
   const router = useRouter();
@@ -26,7 +26,7 @@ export default function BottomNav({ active }: { active: TabKey }) {
     <View style={styles.bar}>
       {btn("home", "Inicio", "🏠", "/home")}
       {btn("calendar", "Calendario", "📅", "/calendar")}
-      {btn("community", "Comunidad", "💬", "/community")}
+      {btn("history", "Historial", "📘", "/history")}
       {btn("profile", "Perfil", "👤", "/profile")}
     </View>
   );

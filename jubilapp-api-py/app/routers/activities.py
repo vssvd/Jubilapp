@@ -9,6 +9,8 @@ from firebase_admin import firestore
 from app.firebase import db
 from app.schemas_activities import (
     ActivityCreate,
+    ActivityHistoryCreate,
+    ActivityHistoryOut,
     ActivityOut,
     ActivityUpdate,
     ActivitiesSeedSummary,
@@ -89,6 +91,36 @@ def _snapshot_to_activity(snapshot) -> ActivityOut:
 
 def _collection():
     return db.collection("activities")
+
+
+def _history_collection(uid: str):
+    return db.collection("users").document(uid).collection("activityHistory")
+
+
+def _snapshot_to_history(snapshot) -> ActivityHistoryOut:
+    data = snapshot.to_dict() or {}
+
+    completed_at = _to_datetime(data.get("completedAt") or data.get("completed_at"))
+    created_at = _to_datetime(data.get("createdAt") or data.get("created_at")) or datetime.now(timezone.utc)
+    updated_at = _to_datetime(data.get("updatedAt") or data.get("updated_at"))
+
+    payload = {
+        "id": snapshot.id,
+        "activity_id": data.get("activityId") or data.get("activity_id"),
+        "title": data.get("title"),
+        "emoji": data.get("emoji"),
+        "category": data.get("category"),
+        "type": data.get("type"),
+        "origin": data.get("origin"),
+        "date_time": _to_datetime(data.get("dateTime") or data.get("date_time")),
+        "completed_at": completed_at or created_at,
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "tags": _normalize_tags(data.get("tags")),
+        "notes": data.get("notes"),
+    }
+
+    return ActivityHistoryOut.model_validate(payload)
 
 
 @router.post("", response_model=ActivityOut, status_code=status.HTTP_201_CREATED)
@@ -173,6 +205,79 @@ def list_activities(
     for snap in snapshots:
         activities.append(_snapshot_to_activity(snap))
     return activities
+
+
+@router.post("/history", response_model=ActivityHistoryOut, status_code=status.HTTP_201_CREATED)
+def create_history_entry(
+    payload: ActivityHistoryCreate,
+    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+):
+    collection = _history_collection(uid)
+    doc_ref = collection.document()
+
+    data = payload.model_dump(by_alias=True, exclude_none=True)
+    if "completedAt" not in data:
+        data["completedAt"] = firestore.SERVER_TIMESTAMP
+
+    timestamps = {
+        "createdAt": firestore.SERVER_TIMESTAMP,
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+
+    doc_ref.set({**data, **timestamps})
+    snapshot = doc_ref.get()
+    if not snapshot.exists:
+        raise HTTPException(status_code=500, detail="No se pudo guardar el historial")
+    return _snapshot_to_history(snapshot)
+
+
+@router.get("/history", response_model=List[ActivityHistoryOut])
+def list_history_entries(
+    *,
+    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+    category: Optional[str] = Query(None),
+    from_date: Optional[datetime] = Query(None, alias="fromDate"),
+    to_date: Optional[datetime] = Query(None, alias="toDate"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    query = _history_collection(uid)
+
+    if category := _normalize_text(category):
+        query = query.where("category", "==", category)
+
+    from_dt = _to_datetime(from_date)
+    to_dt = _to_datetime(to_date)
+
+    if from_dt:
+        query = query.where("completedAt", ">=", from_dt)
+    if to_dt:
+        query = query.where("completedAt", "<=", to_dt)
+
+    query = query.order_by("completedAt", direction=firestore.Query.DESCENDING)
+
+    if offset:
+        query = query.offset(offset)
+    query = query.limit(limit)
+
+    snapshots = query.stream()
+    history: List[ActivityHistoryOut] = []
+    for snap in snapshots:
+        history.append(_snapshot_to_history(snap))
+
+    return history
+
+
+@router.delete("/history/{history_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_history_entry(
+    history_id: str,
+    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+):
+    doc_ref = _history_collection(uid).document(history_id)
+    snapshot = doc_ref.get()
+    if not snapshot.exists:
+        raise HTTPException(status_code=404, detail="Registro de historial no encontrado")
+    doc_ref.delete()
 
 
 @router.get("/events/upcoming", response_model=List[ActivityOut])
