@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -149,7 +149,7 @@ def list_activities(
         interest_filters = _normalize_tags(raw_filters)
         if interest_filters:
             if len(interest_filters) > 10:
-                raise HTTPException(status_code=400, detail="Máximo 10 intereses por consulta")
+                interest_filters = interest_filters[:10]
             query = query.where("tags", "array_contains_any", interest_filters)
 
     from_dt = _to_datetime(from_date)
@@ -173,6 +173,73 @@ def list_activities(
     for snap in snapshots:
         activities.append(_snapshot_to_activity(snap))
     return activities
+
+
+@router.get("/events/upcoming", response_model=List[ActivityOut])
+def list_upcoming_events(
+    *,
+    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+    interests: Optional[List[str]] = Query(
+        None,
+        description="Filtra por nombres de intereses; puede repetirse",
+    ),
+    match_my_interests: bool = Query(
+        False,
+        alias="matchMyInterests",
+        description="Si es true, usa los intereses del usuario autenticado",
+    ),
+    origin: Optional[str] = Query(None),
+    free_only: bool = Query(False, alias="freeOnly"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    days_ahead: int = Query(
+        60,
+        ge=1,
+        le=365,
+        alias="daysAhead",
+        description="Cuántos días hacia adelante mostrar",
+    ),
+):
+    now = datetime.now(timezone.utc)
+    limit_dt = now + timedelta(days=days_ahead)
+
+    query = _collection().where("type", "==", "event")
+    query = query.where("dateTime", ">=", now)
+    query = query.where("dateTime", "<=", limit_dt)
+
+    if origin := _normalize_text(origin):
+        query = query.where("origin", "==", origin)
+
+    if free_only:
+        query = query.where("isFree", "==", True)
+
+    interest_filters: Optional[List[str]] = None
+    if interests or match_my_interests:
+        raw_filters: List[str] = []
+        if interests:
+            raw_filters.extend(interests)
+        if match_my_interests:
+            raw_filters.extend(get_user_interest_names(uid))
+        interest_filters = _normalize_tags(raw_filters)
+        if interest_filters:
+            if len(interest_filters) > 10:
+                interest_filters = interest_filters[:10]
+            query = query.where("tags", "array_contains_any", interest_filters)
+
+    query = query.order_by("dateTime", direction=firestore.Query.ASCENDING)
+    query = query.order_by("createdAt", direction=firestore.Query.DESCENDING)
+
+    query = query.limit(limit)
+    if offset:
+        query = query.offset(offset)
+
+    snapshots = query.stream()
+    events: List[ActivityOut] = []
+    for snap in snapshots:
+        activity = _snapshot_to_activity(snap)
+        if activity.date_time and activity.date_time >= now:
+            events.append(activity)
+    return events
 
 
 @router.post("/seed/atemporales", response_model=ActivitiesSeedSummary)

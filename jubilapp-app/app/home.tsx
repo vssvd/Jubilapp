@@ -1,11 +1,12 @@
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Pressable, ActivityIndicator, Alert, Linking } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { theme } from "../src/lib/theme";
 import BottomNav from "../components/BottomNav";
 import { fetchProfile } from "../src/api/profile";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchAtemporalRecommendations } from "../src/api/recommendations";
+import { fetchUpcomingEvents, ActivityEvent } from "../src/api/activities";
 
 type Activity = {
   id: string;
@@ -16,6 +17,57 @@ type Activity = {
   category?: string | null;
 };
 type Notif = { id: string; text: string; time: string; read: boolean };
+
+function formatEventDateTime(value?: string | null): string | null {
+  if (!value) return null;
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return null;
+
+  try {
+    const dateFormatter = new Intl.DateTimeFormat("es-CL", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+    const timeFormatter = new Intl.DateTimeFormat("es-CL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const datePart = dateFormatter.format(dt);
+    const timePart = timeFormatter.format(dt);
+    const normalized = datePart ? datePart.charAt(0).toUpperCase() + datePart.slice(1) : datePart;
+    return `${normalized} · ${timePart} hrs`;
+  } catch {
+    const day = dt.getDate().toString().padStart(2, "0");
+    const month = (dt.getMonth() + 1).toString().padStart(2, "0");
+    const year = dt.getFullYear();
+    const hours = dt.getHours().toString().padStart(2, "0");
+    const minutes = dt.getMinutes().toString().padStart(2, "0");
+    return `${day}/${month}/${year} · ${hours}:${minutes} hrs`;
+  }
+}
+
+function describeEventLocation(value?: string | null): string {
+  if (!value) return "Lugar por confirmar";
+  const trimmed = value.trim();
+  if (!trimmed) return "Lugar por confirmar";
+
+  const parts = trimmed
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    const main = parts[0];
+    const city = parts[parts.length - 1];
+    if (main.toLowerCase() === city.toLowerCase()) {
+      return city;
+    }
+    return `${main} · ${city}`;
+  }
+
+  return trimmed;
+}
 
 export default function Home() {
   const router = useRouter();
@@ -30,6 +82,9 @@ export default function Home() {
     { id: "n3", text: "🎉 Bien hecho, completaste tu primera actividad.", time: "ayer 17:45", read: true },
   ]);
   const [loadingActivities, setLoadingActivities] = useState(true);
+  const [eventItems, setEventItems] = useState<ActivityEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const startGenerating = useRef(params.onboard === "1");
   const [generationStage, setGenerationStage] = useState<"idle" | "loading" | "ready">(
     startGenerating.current ? "loading" : "idle",
@@ -73,6 +128,36 @@ export default function Home() {
     loadSuggestions();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadEvents = async () => {
+      setLoadingEvents(true);
+      setEventsError(null);
+      try {
+        const data = await fetchUpcomingEvents({ limit: 5, matchMyInterests: true, daysAhead: 45 });
+        if (!cancelled) {
+          setEventItems(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setEventItems([]);
+          setEventsError("No pudimos cargar tus eventos. Inténtalo nuevamente en unos minutos.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingEvents(false);
+        }
+      }
+    };
+
+    loadEvents();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     if (h < 12) return "¡Buenos días";
@@ -90,6 +175,16 @@ export default function Home() {
       return { ...i, done: !i.done };
     }));
   };
+
+  const openEventLink = useCallback((url: string) => {
+    if (!url) {
+      Alert.alert("Eventos", "Este evento aún no tiene un enlace disponible.");
+      return;
+    }
+    Linking.openURL(url).catch(() => {
+      Alert.alert("Eventos", "No pudimos abrir el enlace del evento.");
+    });
+  }, []);
 
   const handleContinue = () => {
     startGenerating.current = false;
@@ -117,6 +212,45 @@ export default function Home() {
         👋 {greeting}{name ? `, ${name}` : ""}!
       </Text>
       <Text style={[styles.subtitle, { textAlign: "center", marginBottom: 6 }]}>Estas son tus actividades de hoy</Text>
+
+      <View style={styles.eventsSection}>
+        <Text style={styles.sectionTitle}>Eventos recomendados</Text>
+        {loadingEvents ? (
+          <View style={[styles.eventsCard, styles.eventsCenteredCard]}>
+            <ActivityIndicator color={theme.primary} size="small" />
+            <Text style={styles.eventsLoadingText}>Buscando eventos…</Text>
+          </View>
+        ) : eventsError ? (
+          <View style={[styles.eventsCard, styles.eventsCenteredCard]}>
+            <Text style={styles.eventsError}>{eventsError}</Text>
+          </View>
+        ) : eventItems.length === 0 ? (
+          <View style={[styles.eventsCard, styles.eventsCenteredCard]}>
+            <Text style={styles.eventsEmpty}>No encontramos eventos próximos según tus intereses.</Text>
+          </View>
+        ) : (
+          eventItems.map((event) => {
+            const formattedDate = formatEventDateTime(event.dateTime) ?? "Fecha por definir";
+            const locationLabel = describeEventLocation(event.location);
+            return (
+              <TouchableOpacity
+                key={event.id}
+                style={[styles.eventsCard, styles.eventCard]}
+                onPress={() => openEventLink(event.link)}
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir evento ${event.title}`}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.eventTitle}>{event.title}</Text>
+                  <Text style={styles.eventMeta}>🗓️ {formattedDate}</Text>
+                  <Text style={styles.eventMeta}>📍 {locationLabel}</Text>
+                </View>
+                <Text style={styles.eventLinkText}>Ver</Text>
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </View>
 
       {loadingActivities ? (
         <View style={styles.listLoading}>
@@ -235,6 +369,17 @@ const styles = StyleSheet.create({
   badge: { position: "absolute", top: 0, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ef4444" },
   greeting: { fontFamily: "MontserratSemiBold", color: "#111827", fontSize: 24, marginTop: 8 },
   subtitle: { color: "#4B5563", fontFamily: "NunitoRegular", marginTop: 4 },
+  sectionTitle: { fontFamily: "MontserratSemiBold", color: theme.text, fontSize: 18, marginBottom: 8 },
+  eventsSection: { marginTop: 18 },
+  eventsCard: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB", padding: 16, marginBottom: 10 },
+  eventsCenteredCard: { alignItems: "center", justifyContent: "center", gap: 8 },
+  eventsLoadingText: { color: "#4B5563", fontFamily: "NunitoRegular" },
+  eventsError: { color: "#B91C1C", fontFamily: "NunitoRegular", textAlign: "center" },
+  eventsEmpty: { color: "#4B5563", fontFamily: "NunitoRegular", textAlign: "center" },
+  eventCard: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  eventTitle: { fontFamily: "MontserratSemiBold", color: theme.text, fontSize: 17, marginBottom: 4 },
+  eventMeta: { fontFamily: "NunitoRegular", color: "#4B5563", fontSize: 14, marginBottom: 2 },
+  eventLinkText: { fontFamily: "MontserratSemiBold", color: theme.primary, alignSelf: "center" },
   listLoading: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 32 },
   loadingText: { marginTop: 12, color: "#4B5563", fontFamily: "NunitoRegular" },
   card: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#E5E7EB" },

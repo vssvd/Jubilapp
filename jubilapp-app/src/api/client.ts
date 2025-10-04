@@ -2,11 +2,49 @@ import Constants from "expo-constants";
 import { auth } from "../firebaseConfig";
 import { loadSession } from "../storage/session";
 
+function extractHost(uri: string | undefined): string | undefined {
+  if (!uri || typeof uri !== "string") return undefined;
+
+  let candidate = uri.trim();
+  if (!candidate) return undefined;
+
+  if (candidate.startsWith("exp://")) {
+    candidate = candidate.replace(/^exp:\/\//i, "http://");
+  } else if (candidate.startsWith("ws://") || candidate.startsWith("wss://")) {
+    candidate = candidate.replace(/^ws{1,2}:\/\//i, "http://");
+  }
+
+  if (!candidate.includes("://")) {
+    return candidate.split(":")[0];
+  }
+
+  try {
+    const parsed = new URL(candidate);
+    return parsed.hostname || undefined;
+  } catch {
+    const withoutScheme = candidate.replace(/^[a-zA-Z]+:\/\//, "");
+    return withoutScheme.split(":")[0];
+  }
+}
+
 function deriveDevApiBase(): string | undefined {
-  const hostUri = (Constants as any)?.expoConfig?.hostUri as string | undefined;
-  if (!hostUri) return undefined;
-  const host = hostUri.split(":")[0];
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return `http://${host}:8000`;
+  const knownUris: (string | undefined)[] = [
+    (Constants as any)?.expoConfig?.hostUri,
+    (Constants as any)?.manifest2?.extra?.expoGo?.hostUri,
+    (Constants as any)?.expoGoConfig?.hostUri,
+    (Constants as any)?.manifest?.debuggerHost,
+  ];
+
+  for (const uri of knownUris) {
+    const host = extractHost(uri);
+    if (host && /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+      if (__DEV__) {
+        console.log("[api] deriveDevApiBase ->", host);
+      }
+      return `http://${host}:8000`;
+    }
+  }
+
   return undefined;
 }
 
