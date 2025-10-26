@@ -14,10 +14,13 @@ import {
   deleteHistoryEntry,
   fetchActivityHistory,
   ActivityHistoryEntry,
+  createFavorite,
+  deleteFavorite,
 } from "../src/api/activities";
 
 type Activity = {
   id: string;
+  domainId: number | null;
   title: string;
   emoji: string;
   done: boolean;
@@ -26,8 +29,23 @@ type Activity = {
   tags?: string[] | null;
   historyId?: string | null;
   pending?: boolean;
+  favorite: boolean;
+  favoritePending: boolean;
+  favoriteKey: string;
 };
 type Notif = { id: string; text: string; time: string; read: boolean };
+
+const CATEGORY_OPTIONS = [
+  { key: "cognitiva", label: "Cognitiva", icon: "🧠" },
+  { key: "social", label: "Social", icon: "🤝" },
+  { key: "fisica", label: "Física", icon: "💪" },
+] as const;
+
+type CategoryOptionKey = (typeof CATEGORY_OPTIONS)[number]["key"];
+
+const SESSION_FILTERS: { categories: CategoryOptionKey[] } = {
+  categories: [],
+};
 
 function formatEventDateTime(value?: string | null): string | null {
   if (!value) return null;
@@ -93,6 +111,12 @@ export default function Home() {
     { id: "n3", text: "🎉 Bien hecho, completaste tu primera actividad.", time: "ayer 17:45", read: true },
   ]);
   const [loadingActivities, setLoadingActivities] = useState(true);
+  const [selectedCategories, setSelectedCategories] = useState<CategoryOptionKey[]>(() => [...SESSION_FILTERS.categories]);
+  const hasCategoryFilter = selectedCategories.length > 0;
+  const selectedCategoryLabels = useMemo(
+    () => selectedCategories.map(key => CATEGORY_OPTIONS.find(option => option.key === key)?.label || key),
+    [selectedCategories],
+  );
   const [eventItems, setEventItems] = useState<ActivityEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -112,6 +136,23 @@ export default function Home() {
     })();
   }, []);
 
+  useEffect(() => {
+    SESSION_FILTERS.categories = [...selectedCategories];
+  }, [selectedCategories]);
+
+  const toggleCategory = useCallback((key: CategoryOptionKey) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(key)) {
+        return prev.filter(value => value !== key);
+      }
+      return [...prev, key];
+    });
+  }, []);
+
+  const clearCategoryFilters = useCallback(() => {
+    setSelectedCategories(prev => (prev.length ? [] : prev));
+  }, []);
+
   const fetchTodayHistory = useCallback(async (): Promise<ActivityHistoryEntry[]> => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -129,7 +170,10 @@ export default function Home() {
     lastLoadedDate.current = LOADING_SENTINEL;
     let succeeded = false;
     try {
-      const recs = await fetchAtemporalRecommendations(6);
+      const recs = await fetchAtemporalRecommendations({
+        limit: 6,
+        categories: selectedCategories,
+      });
       let todayHistory: ActivityHistoryEntry[] = [];
       try {
         todayHistory = await fetchTodayHistory();
@@ -148,8 +192,12 @@ export default function Home() {
         recs.map((activity) => {
           const key = String(activity.id);
           const matched = historyByActivity.get(key);
+          const numericId = typeof activity.id === "number" ? activity.id : Number(activity.id);
+          const domainId = Number.isFinite(numericId) ? numericId : null;
+          const favoriteKey = domainId !== null ? `atemporal-${domainId}` : key;
           return {
             id: key,
+            domainId,
             title: activity.title,
             emoji: activity.emoji || "🌟",
             done: Boolean(matched),
@@ -158,6 +206,9 @@ export default function Home() {
             tags: activity.tags ?? null,
             historyId: matched?.id ?? null,
             pending: false,
+            favorite: Boolean(activity.is_favorite),
+            favoritePending: false,
+            favoriteKey,
           };
         }),
       );
@@ -177,7 +228,7 @@ export default function Home() {
         }
       }
     }
-  }, [fetchTodayHistory]);
+  }, [fetchTodayHistory, selectedCategories]);
 
   useEffect(() => {
     loadSuggestions();
@@ -276,6 +327,46 @@ export default function Home() {
     }
   };
 
+  const toggleFavorite = async (id: string) => {
+    const current = items.find(i => i.id === id);
+    if (!current) return;
+    if (current.isFallback) return;
+    if (current.favoritePending) return;
+
+    const prevFavorite = Boolean(current.favorite);
+    const nextFavorite = !prevFavorite;
+
+    setItems(prev => prev.map(i => (i.id === id ? { ...i, favorite: nextFavorite, favoritePending: true } : i)));
+
+    try {
+      if (nextFavorite) {
+        const source = current.domainId !== null
+          ? { type: "atemporal", id: current.domainId }
+          : { type: "atemporal" };
+        await createFavorite({
+          activityId: current.favoriteKey,
+          activityType: "atemporal",
+          title: current.title,
+          emoji: current.emoji,
+          category: current.category ?? null,
+          tags: current.tags ?? undefined,
+          source,
+        });
+      } else {
+        await deleteFavorite(current.favoriteKey);
+      }
+      setItems(prev => prev.map(i => (i.id === id ? { ...i, favorite: nextFavorite, favoritePending: false } : i)));
+    } catch {
+      setItems(prev => prev.map(i => (i.id === id ? { ...i, favorite: prevFavorite, favoritePending: false } : i)));
+      Alert.alert(
+        "Favoritos",
+        nextFavorite
+          ? "No pudimos guardar el favorito. Inténtalo nuevamente."
+          : "No pudimos actualizar tus favoritos. Inténtalo nuevamente.",
+      );
+    }
+  };
+
   const openEventLink = useCallback((url: string) => {
     if (!url) {
       Alert.alert("Eventos", "Este evento aún no tiene un enlace disponible.");
@@ -312,6 +403,41 @@ export default function Home() {
         👋 {greeting}{name ? `, ${name}` : ""}!
       </Text>
       <Text style={[styles.subtitle, { textAlign: "center", marginBottom: 6 }]}>Estas son tus actividades de hoy</Text>
+
+      <View style={styles.categorySection}>
+        <Text style={styles.categoryLabel}>Filtra tus recomendaciones</Text>
+        <View style={styles.categoryChipsRow}>
+          <Pressable
+            onPress={clearCategoryFilters}
+            style={[styles.categoryChip, !hasCategoryFilter && styles.categoryChipActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !hasCategoryFilter }}
+          >
+            <Text style={[styles.categoryChipText, !hasCategoryFilter && styles.categoryChipTextActive]}>✨ Todas</Text>
+          </Pressable>
+          {CATEGORY_OPTIONS.map(option => {
+            const active = selectedCategories.includes(option.key);
+            return (
+              <Pressable
+                key={option.key}
+                onPress={() => toggleCategory(option.key)}
+                style={[styles.categoryChip, active && styles.categoryChipActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
+                  {option.icon} {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {hasCategoryFilter && (
+          <Text style={styles.categoryHint}>
+            Filtro activo: {selectedCategoryLabels.join(", ")}.
+          </Text>
+        )}
+      </View>
 
       <View style={styles.eventsSection}>
         <Text style={styles.sectionTitle}>Eventos recomendados</Text>
@@ -364,7 +490,9 @@ export default function Home() {
           contentContainerStyle={{ paddingVertical: 12, paddingHorizontal: 4 }}
           ListEmptyComponent={(
             <Text style={styles.emptyState}>
-              Aún no tenemos actividades para mostrar. Ajusta tus intereses o inténtalo más tarde.
+              {hasCategoryFilter
+                ? "No encontramos actividades para las categorías seleccionadas. Ajusta el filtro o inténtalo más tarde."
+                : "Aún no tenemos actividades para mostrar. Ajusta tus intereses o inténtalo más tarde."}
             </Text>
           )}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
@@ -402,6 +530,28 @@ export default function Home() {
                   </TouchableOpacity>
                 )}
               </View>
+              {!item.isFallback && (
+                <TouchableOpacity
+                  style={[
+                    styles.favoriteButton,
+                    item.favorite && styles.favoriteButtonActive,
+                    item.favoritePending && styles.favoriteButtonDisabled,
+                  ]}
+                  onPress={() => toggleFavorite(item.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.favorite ? "Quitar de favoritos" : "Agregar a favoritos"} ${item.title}`}
+                  disabled={item.favoritePending}
+                >
+                  {item.favoritePending ? (
+                    <ActivityIndicator size="small" color="#F59E0B" />
+                  ) : (
+                    <Text style={[styles.favoriteIcon, item.favorite && styles.favoriteIconActive]}>
+                      {item.favorite ? "★" : "☆"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </TouchableOpacity>
           )}
         />
@@ -473,6 +623,21 @@ const styles = StyleSheet.create({
   badge: { position: "absolute", top: 0, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ef4444" },
   greeting: { fontFamily: "MontserratSemiBold", color: "#111827", fontSize: 24, marginTop: 8 },
   subtitle: { color: "#4B5563", fontFamily: "NunitoRegular", marginTop: 4 },
+  categorySection: { marginTop: 16, marginBottom: 4 },
+  categoryLabel: { fontFamily: "MontserratSemiBold", color: "#4B5563", marginBottom: 8 },
+  categoryChipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  categoryChip: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  categoryChipActive: { backgroundColor: "#DCFCE7", borderColor: "#10B981" },
+  categoryChipText: { fontFamily: "NunitoRegular", color: "#4B5563", fontSize: 14 },
+  categoryChipTextActive: { fontFamily: "MontserratSemiBold", color: "#047857" },
+  categoryHint: { marginTop: 8, fontFamily: "NunitoRegular", color: "#047857" },
   sectionTitle: { fontFamily: "MontserratSemiBold", color: theme.text, fontSize: 18, marginBottom: 8 },
   eventsSection: { marginTop: 18 },
   eventsCard: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB", padding: 16, marginBottom: 10 },
@@ -504,6 +669,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     fontSize: 13,
   },
+  favoriteButton: { alignSelf: "flex-start", paddingHorizontal: 6, paddingVertical: 4, borderRadius: 999 },
+  favoriteButtonActive: {},
+  favoriteButtonDisabled: { opacity: 0.5 },
+  favoriteIcon: { fontSize: 22, color: "#D1D5DB" },
+  favoriteIconActive: { color: "#F59E0B" },
   fallbackText: { color: "#92400e", fontFamily: "NunitoRegular", marginTop: 4 },
   fallbackButton: {
     alignSelf: "flex-start",

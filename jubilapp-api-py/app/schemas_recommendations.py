@@ -19,6 +19,7 @@ class AtemporalActivityOut(BaseModel):
     suggested_time: Optional[str] = None
     is_fallback: bool = False
     category: Optional[str] = None
+    is_favorite: bool = False
 
 
 class AtemporalRecommendationsOut(BaseModel):

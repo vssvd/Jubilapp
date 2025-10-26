@@ -17,11 +17,33 @@ export type AtemporalActivity = {
   suggested_time?: string | null;
   is_fallback?: boolean;
   category?: string | null;
+  is_favorite?: boolean;
 };
 
-export async function fetchAtemporalRecommendations(limit = 8): Promise<AtemporalActivity[]> {
+export type FetchAtemporalRecommendationsOptions = {
+  limit?: number;
+  categories?: string[];
+};
+
+export async function fetchAtemporalRecommendations(
+  options: FetchAtemporalRecommendationsOptions = {},
+): Promise<AtemporalActivity[]> {
+  const params = new URLSearchParams();
+
+  if (typeof options.limit === "number") {
+    params.set("limit", String(options.limit));
+  }
+
+  if (options.categories?.length) {
+    options.categories.forEach((category) => {
+      const value = category?.trim().toLowerCase();
+      if (value) params.append("categories", value);
+    });
+  }
+
+  const query = params.toString();
   const data = await request<{ activities: AtemporalActivity[] }>(
-    `/api/recommendations/atemporales?limit=${encodeURIComponent(limit)}`
+    `/api/recommendations/atemporales${query ? `?${query}` : ""}`,
   );
   return data.activities;
 }

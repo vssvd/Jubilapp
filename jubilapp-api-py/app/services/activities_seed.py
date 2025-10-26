@@ -6,7 +6,7 @@ from typing import Dict, Iterable
 from firebase_admin import firestore
 
 from app.firebase import db
-from app.domain_activities import ATEMPORAL_ACTIVITIES
+from app.domain_activities import ATEMPORAL_ACTIVITIES, get_category_for_activity
 
 
 @dataclass
@@ -39,12 +39,13 @@ def _build_atemporal_payload() -> Iterable[Dict]:
         doc_id = f"atemporal-{item_id}"
         link = f"{base_link}/{doc_id}"
         tags = item.get("tags") or []
+        category = get_category_for_activity(item)
 
         payload = {
             "doc_id": doc_id,
             "type": "atemporal",
             "title": item.get("title"),
-            "category": item.get("category") or (tags[0] if tags else None),
+            "category": category,
             "dateTime": None,
             "location": None,
             "link": item.get("link") or link,

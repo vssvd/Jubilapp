@@ -35,6 +35,7 @@ export default function RootLayout() {
           <Stack.Screen name="login" options={{ title: "🔐 Iniciar sesión", headerShown: false }} />
           <Stack.Screen name="register" options={{ title: "✍️ Crear cuenta", headerShown: false }} />
           <Stack.Screen name="home" options={{ title: "🎉 Bienvenida", headerShown: false }} />
+          <Stack.Screen name="favorites" options={{ title: "⭐ Favoritos", headerShown: false }} />
           <Stack.Screen name="history" options={{ title: "📘 Historial", headerShown: false }} />
           <Stack.Screen name="interests" options={{ title: "📝 Intereses", headerShown: false }} />
           <Stack.Screen name="interests/index" options={{ title: "Elige cómo continuar" }} />

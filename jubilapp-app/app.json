@@ -41,7 +41,9 @@
 
     "extra": {
       "apiBase": "auto",
-      "apiBaseProd": "https://tu-backend.prod"
+      "apiBaseProd": "https://tu-backend.prod",
+      "interviewSpeechLocale": "es-MX",
+      "interviewSpeechVoice": "Paulina"
     }
   }
 }

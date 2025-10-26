@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import List, Dict, Optional
+from typing import Dict, Iterable, List, Optional
 import random
+import unicodedata
 
 # Catálogo de actividades atemporales.
 # Tags deben corresponder a los nombres del catálogo de intereses
@@ -48,6 +49,79 @@ ATEMPORAL_ACTIVITIES: List[Dict] = [
     {"id": 39, "title": "Visitar una feria artesanal", "emoji": "🛍️", "tags": ["Cultura local", "Manualidades / artesanía"], "indoor": False, "energy": "media", "duration_min": 60, "cost": "medio", "time_of_day": "tarde"},
     {"id": 40, "title": "Preparar jugos o batidos naturales", "emoji": "🥤", "tags": ["Cocina saludable"], "indoor": True, "energy": "media", "duration_min": 20, "cost": "bajo", "time_of_day": "manana"},
 ]
+
+
+CATEGORY_BY_ID: Dict[int, str] = {
+    1: "Física",
+    2: "Física",
+    3: "Física",
+    4: "Cognitiva",
+    5: "Cognitiva",
+    6: "Cognitiva",
+    7: "Cognitiva",
+    8: "Cognitiva",
+    9: "Física",
+    10: "Física",
+    11: "Cognitiva",
+    12: "Social",
+    13: "Social",
+    14: "Cognitiva",
+    15: "Cognitiva",
+    16: "Cognitiva",
+    17: "Física",
+    18: "Física",
+    19: "Social",
+    20: "Cognitiva",
+    21: "Social",
+    22: "Cognitiva",
+    23: "Social",
+    24: "Física",
+    25: "Física",
+    26: "Social",
+    27: "Física",
+    28: "Física",
+    29: "Cognitiva",
+    30: "Cognitiva",
+    31: "Social",
+    32: "Física",
+    33: "Cognitiva",
+    34: "Cognitiva",
+    35: "Cognitiva",
+    36: "Física",
+    37: "Física",
+    38: "Cognitiva",
+    39: "Social",
+    40: "Física",
+}
+
+
+def _normalize_category_token(value: Optional[str]) -> Optional[str]:
+    if not value or not isinstance(value, str):
+        return None
+    decomposed = unicodedata.normalize("NFKD", value)
+    cleaned = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    token = cleaned.strip().lower()
+    return token or None
+
+
+def get_category_for_activity(activity: Dict) -> Optional[str]:
+    explicit = activity.get("category")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()
+
+    activity_id = activity.get("id")
+    if isinstance(activity_id, int):
+        mapped = CATEGORY_BY_ID.get(activity_id)
+        if mapped:
+            return mapped
+
+    for tag in activity.get("tags") or []:
+        if isinstance(tag, str):
+            cleaned = tag.strip()
+            if cleaned:
+                return cleaned
+
+    return None
 
 
 FALLBACK_ACTIVITY: Dict = {
@@ -97,12 +171,28 @@ def recommend_atemporales(
     preparation_level: Optional[str] = None,
     *,
     limit: int = 10,
+    categories: Optional[Iterable[str]] = None,
     time_of_day: Optional[str] = None,
 ) -> List[Dict]:
     names = {n.strip() for n in user_interests if n and n.strip()}
+    allowed_categories = None
+    if categories:
+        allowed = {
+            token
+            for c in categories
+            for token in (_normalize_category_token(c),)
+            if token
+        }
+        allowed_categories = allowed or None
 
     scored = []
     for a in ATEMPORAL_ACTIVITIES:
+        category_name = get_category_for_activity(a)
+        if allowed_categories:
+            normalized = _normalize_category_token(category_name)
+            if not normalized or normalized not in allowed_categories:
+                continue
+
         tags = set(a.get("tags", []))
         overlap = len(names.intersection(tags))
         if overlap == 0:
@@ -139,9 +229,7 @@ def recommend_atemporales(
             item["tags"] = list(activity["tags"])
         if not item.get("suggested_time"):
             item["suggested_time"] = suggest_time(item.get("time_of_day", "cualquiera"))
-        if not item.get("category"):
-            tags_list = item.get("tags") or []
-            item["category"] = next((t for t in tags_list if isinstance(t, str) and t.strip()), None)
+        item["category"] = get_category_for_activity(item)
         item.setdefault("is_fallback", False)
         return item
 

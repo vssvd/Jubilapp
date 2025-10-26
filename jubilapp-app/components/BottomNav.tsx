@@ -3,12 +3,13 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native
 import { useRouter } from "expo-router";
 import { theme } from "../src/lib/theme";
 
-type TabKey = "home" | "calendar" | "history" | "profile";
+type TabKey = "home" | "favorites" | "history" | "profile";
 
 export default function BottomNav({ active }: { active: TabKey }) {
   const router = useRouter();
   const btn = (key: TabKey, label: string, emoji: string, path: string) => (
     <TouchableOpacity
+      key={key}
       onPress={() => {
         if (active !== key) {
           router.navigate(path);
@@ -25,7 +26,7 @@ export default function BottomNav({ active }: { active: TabKey }) {
   return (
     <View style={styles.bar}>
       {btn("home", "Inicio", "🏠", "/home")}
-      {btn("calendar", "Calendario", "📅", "/calendar")}
+      {btn("favorites", "Favoritos", "⭐", "/favorites")}
       {btn("history", "Historial", "📘", "/history")}
       {btn("profile", "Perfil", "👤", "/profile")}
     </View>
@@ -51,7 +52,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     elevation: 3,
   },
-  item: { alignItems: "center", gap: 4, paddingHorizontal: 8 },
+  item: { alignItems: "center", gap: 4, paddingHorizontal: 6 },
   icon: { fontSize: 22, color: "#6B7280" },
   label: { fontSize: 13, color: "#6B7280" },
   active: { color: theme.primaryDark },

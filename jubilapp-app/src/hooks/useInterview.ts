@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Speech from "expo-speech";
 import { Audio } from "expo-av";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
 import { transcribeVoice } from "../api/voice";
 import { analyzeQuestionnaire, QuestionnaireResult } from "../api/ai";
@@ -42,6 +43,28 @@ const QUESTIONS: InterviewQuestion[] = [
     speech: "¿Cómo te sientes respecto a tu planificación para la jubilación?",
   },
 ];
+
+const EXTRA_CONFIG = (Constants.expoConfig?.extra ?? {}) as Record<string, unknown>;
+
+const DEFAULT_SPEECH_LANGUAGE = (() => {
+  const raw =
+    (process.env.EXPO_PUBLIC_INTERVIEW_LOCALE as string | undefined) ||
+    (EXTRA_CONFIG.interviewSpeechLocale as string | undefined) ||
+    "es-CL";
+  const cleaned = (raw ?? "").trim();
+  return cleaned || "es-CL";
+})();
+
+const PREFERRED_SPEECH_VOICE = (() => {
+  const raw =
+    (process.env.EXPO_PUBLIC_INTERVIEW_VOICE as string | undefined) ||
+    (EXTRA_CONFIG.interviewSpeechVoice as string | undefined) ||
+    "";
+  return (raw ?? "").trim();
+})();
+
+const TARGET_LOCALE_LOWER = DEFAULT_SPEECH_LANGUAGE.toLowerCase();
+const TARGET_LANGUAGE_PREFIX = TARGET_LOCALE_LOWER.split("-")[0];
 
 const IOS_SAMPLE_RATE = 44100;
 const ANDROID_SAMPLE_RATE = 16000;
@@ -85,6 +108,7 @@ export function useInterview() {
   const [responses, setResponses] = useState<ResponseMap>({});
   const [analysis, setAnalysis] = useState<QuestionnaireResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [speechVoice, setSpeechVoice] = useState<Speech.Voice | null>(null);
   const recordingRef = useRef<RecordingRef>(null);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
 
@@ -107,15 +131,46 @@ export function useInterview() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const voices = await Speech.getAvailableVoicesAsync();
+        if (cancelled) return;
+        const selected = selectSpeechVoice(voices);
+        if (selected) {
+          setSpeechVoice(selected);
+        }
+      } catch (err) {
+        if (__DEV__) {
+          console.warn("[Speech] No se pudieron cargar las voces disponibles", err);
+        }
+        setSpeechVoice(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const speechOptions = useMemo(() => {
+    const options: Speech.SpeechOptions = {
+      language: speechVoice?.language || DEFAULT_SPEECH_LANGUAGE,
+      pitch: Platform.OS === "ios" ? 1.05 : 1.0,
+      rate: 0.95,
+    };
+    const voiceId = speechVoice?.identifier || speechVoice?.name;
+    if (voiceId) {
+      options.voice = voiceId;
+    }
+    return options;
+  }, [speechVoice]);
+
   const speakQuestion = useCallback(() => {
     if (!currentQuestion) return;
     Speech.stop();
-    Speech.speak(currentQuestion.speech ?? currentQuestion.title, {
-      language: "es-CL",
-      pitch: Platform.OS === "ios" ? 1.05 : 1.0,
-      rate: 0.95,
-    });
-  }, [currentQuestion]);
+    Speech.speak(currentQuestion.speech ?? currentQuestion.title, speechOptions);
+  }, [currentQuestion, speechOptions]);
 
   const startRecording = useCallback(async () => {
     if (status === "recording" || status === "processing") return;
@@ -288,4 +343,62 @@ export function useInterview() {
     analyze,
     goNext,
   };
+}
+
+function selectSpeechVoice(voices: Speech.Voice[] | null | undefined): Speech.Voice | null {
+  if (!voices || voices.length === 0) {
+    return null;
+  }
+
+  if (PREFERRED_SPEECH_VOICE) {
+    const target = normalizeString(PREFERRED_SPEECH_VOICE);
+    const match = voices.find(
+      (voice) => normalizeString(voice.identifier) === target || normalizeString(voice.name) === target,
+    );
+    if (match) {
+      return match;
+    }
+  }
+
+  const ranked = [...voices]
+    .map((voice) => ({ voice, score: computeVoiceScore(voice) }))
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.voice);
+
+  const spanish = ranked.find((voice) => normalizeString(voice.language).startsWith("es"));
+  if (spanish) {
+    return spanish;
+  }
+
+  return ranked[0] ?? null;
+}
+
+function computeVoiceScore(voice: Speech.Voice): number {
+  const language = normalizeString(voice.language);
+  const quality = normalizeString((voice as any).quality);
+  const gender = normalizeString((voice as any).gender);
+
+  let score = 0;
+
+  if (language === TARGET_LOCALE_LOWER) {
+    score += 6;
+  }
+  if (TARGET_LANGUAGE_PREFIX && language.startsWith(TARGET_LANGUAGE_PREFIX)) {
+    score += 3;
+  }
+  if (language.startsWith("es")) {
+    score += 2;
+  }
+  if (quality === "enhanced") {
+    score += 1;
+  }
+  if (gender === "female") {
+    score += 0.25;
+  }
+
+  return score;
+}
+
+function normalizeString(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
 }

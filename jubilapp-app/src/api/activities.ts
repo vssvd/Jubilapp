@@ -29,6 +29,35 @@ export type ActivityHistoryEntry = {
   notes?: string | null;
 };
 
+export type ActivityFavorite = {
+  id: string;
+  activityId: string;
+  activityType: string;
+  title: string;
+  emoji?: string | null;
+  category?: string | null;
+  origin?: string | null;
+  link?: string | null;
+  dateTime?: string | null;
+  tags?: string[] | null;
+  source?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt?: string | null;
+};
+
+export type CreateFavoriteInput = {
+  activityId: string;
+  activityType: string;
+  title: string;
+  emoji?: string | null;
+  category?: string | null;
+  origin?: string | null;
+  link?: string | null;
+  dateTime?: string | null;
+  tags?: string[] | null;
+  source?: Record<string, unknown> | null;
+};
+
 export type FetchUpcomingEventsOptions = {
   limit?: number;
   daysAhead?: number;
@@ -98,6 +127,23 @@ export async function createHistoryEntry(payload: CreateHistoryEntryInput): Prom
 
 export async function deleteHistoryEntry(historyId: string): Promise<void> {
   await request(`/api/activities/history/${encodeURIComponent(historyId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchFavorites(): Promise<ActivityFavorite[]> {
+  return request<ActivityFavorite[]>("/api/activities/favorites");
+}
+
+export async function createFavorite(input: CreateFavoriteInput): Promise<ActivityFavorite> {
+  return request<ActivityFavorite>("/api/activities/favorites", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function deleteFavorite(favoriteId: string): Promise<void> {
+  await request(`/api/activities/favorites/${encodeURIComponent(favoriteId)}`, {
     method: "DELETE",
   });
 }
