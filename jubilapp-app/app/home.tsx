@@ -10,6 +10,7 @@ import { fetchAtemporalRecommendations } from "../src/api/recommendations";
 import {
   fetchUpcomingEvents,
   ActivityEvent,
+  FetchUpcomingEventsOptions,
   createHistoryEntry,
   deleteHistoryEntry,
   fetchActivityHistory,
@@ -47,6 +48,8 @@ const SESSION_FILTERS: { categories: CategoryOptionKey[] } = {
   categories: [],
 };
 
+const DEFAULT_EVENTS_RADIUS_KM = 20;
+
 function formatEventDateTime(value?: string | null): string | null {
   if (!value) return null;
   const dt = new Date(value);
@@ -74,6 +77,21 @@ function formatEventDateTime(value?: string | null): string | null {
     const minutes = dt.getMinutes().toString().padStart(2, "0");
     return `${day}/${month}/${year} · ${hours}:${minutes} hrs`;
   }
+}
+
+function formatDistanceKm(value?: number | null): string | null {
+  if (typeof value !== "number" || Number.isNaN(value) || value < 0) return null;
+  if (value < 1) {
+    const meters = Math.round(value * 1000);
+    if (meters <= 0) {
+      return "<1 km";
+    }
+    return `${meters} m`;
+  }
+  if (value < 10) {
+    return `${value.toFixed(1)} km`;
+  }
+  return `${Math.round(value)} km`;
 }
 
 function describeEventLocation(value?: string | null): string {
@@ -120,6 +138,11 @@ export default function Home() {
   const [eventItems, setEventItems] = useState<ActivityEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [eventsNotice, setEventsNotice] = useState<string | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [profileCity, setProfileCity] = useState<string | null>(null);
+  const [profileLat, setProfileLat] = useState<number | null>(null);
+  const [profileLng, setProfileLng] = useState<number | null>(null);
   const startGenerating = useRef(params.onboard === "1");
   const lastLoadedDate = useRef<string | null>(null);
   const LOADING_SENTINEL = "__loading__";
@@ -127,14 +150,37 @@ export default function Home() {
     startGenerating.current ? "loading" : "idle",
   );
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const p = await fetchProfile();
-        setName((p.full_name || p.email || "").toString().split(" ")[0] || null);
-      } catch {}
-    })();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setProfileLoaded(false);
+      setLoadingEvents(true);
+      setEventsNotice(null);
+      setEventsError(null);
+      (async () => {
+        try {
+          const p = await fetchProfile();
+          if (!active) return;
+          setName((p.full_name || p.email || "").toString().split(" ")[0] || null);
+          const cityValue = (p.location_city ?? "").toString().trim();
+          setProfileCity(cityValue || null);
+          const latValue = typeof p.location_lat === "number" ? p.location_lat : null;
+          const lngValue = typeof p.location_lng === "number" ? p.location_lng : null;
+          setProfileLat(latValue !== null && Number.isFinite(latValue) ? latValue : null);
+          setProfileLng(lngValue !== null && Number.isFinite(lngValue) ? lngValue : null);
+        } catch {
+          if (!active) return;
+        } finally {
+          if (active) {
+            setProfileLoaded(true);
+          }
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   useEffect(() => {
     SESSION_FILTERS.categories = [...selectedCategories];
@@ -250,16 +296,57 @@ export default function Home() {
     let cancelled = false;
 
     const loadEvents = async () => {
+      if (!profileLoaded) {
+        return;
+      }
+
       setLoadingEvents(true);
       setEventsError(null);
-      try {
-        const data = await fetchUpcomingEvents({ limit: 5, matchMyInterests: true, daysAhead: 45 });
-        if (!cancelled) {
-          setEventItems(data);
-        }
-      } catch {
+      setEventsNotice(null);
+
+      const hasCoords =
+        typeof profileLat === "number" &&
+        Number.isFinite(profileLat) &&
+        typeof profileLng === "number" &&
+        Number.isFinite(profileLng);
+      const hasCity = Boolean(profileCity && profileCity.trim().length);
+
+      if (!hasCoords && !hasCity) {
         if (!cancelled) {
           setEventItems([]);
+          setEventsNotice("Agrega tu ciudad o comuna en tu perfil para ver eventos cercanos. Mientras tanto, explora tus actividades atemporales.");
+          setLoadingEvents(false);
+        }
+        return;
+      }
+
+      const options: FetchUpcomingEventsOptions = {
+        limit: 5,
+        matchMyInterests: true,
+        daysAhead: 45,
+      };
+
+      if (hasCoords && profileLat !== null && profileLng !== null) {
+        options.lat = profileLat;
+        options.lng = profileLng;
+        options.radiusKm = DEFAULT_EVENTS_RADIUS_KM;
+      } else if (hasCity && profileCity) {
+        options.city = profileCity;
+      }
+
+      try {
+        const data = await fetchUpcomingEvents(options);
+        if (cancelled) return;
+        setEventItems(data);
+        setEventsNotice(null);
+        setEventsError(null);
+      } catch (error: any) {
+        if (cancelled) return;
+        setEventItems([]);
+        if (error?.status === 428 || error?.code === "location_required") {
+          setEventsNotice("Necesitamos tu ubicación para recomendarte eventos cercanos. Configúrala en tu perfil y prueba nuevamente.");
+          setEventsError(null);
+        } else {
           setEventsError("No pudimos cargar tus eventos. Inténtalo nuevamente en unos minutos.");
         }
       } finally {
@@ -274,7 +361,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [profileLoaded, profileCity, profileLat, profileLng]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -450,6 +537,10 @@ export default function Home() {
           <View style={[styles.eventsCard, styles.eventsCenteredCard]}>
             <Text style={styles.eventsError}>{eventsError}</Text>
           </View>
+        ) : eventsNotice ? (
+          <View style={[styles.eventsCard, styles.eventsCenteredCard]}>
+            <Text style={styles.eventsNotice}>{eventsNotice}</Text>
+          </View>
         ) : eventItems.length === 0 ? (
           <View style={[styles.eventsCard, styles.eventsCenteredCard]}>
             <Text style={styles.eventsEmpty}>No encontramos eventos próximos según tus intereses.</Text>
@@ -458,6 +549,8 @@ export default function Home() {
           eventItems.map((event) => {
             const formattedDate = formatEventDateTime(event.dateTime) ?? "Fecha por definir";
             const locationLabel = describeEventLocation(event.location);
+            const distanceLabel = formatDistanceKm(event.distanceKm);
+            const locationLine = distanceLabel ? `${locationLabel} · ${distanceLabel}` : locationLabel;
             return (
               <TouchableOpacity
                 key={event.id}
@@ -469,7 +562,7 @@ export default function Home() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.eventTitle}>{event.title}</Text>
                   <Text style={styles.eventMeta}>🗓️ {formattedDate}</Text>
-                  <Text style={styles.eventMeta}>📍 {locationLabel}</Text>
+                  <Text style={styles.eventMeta}>📍 {locationLine}</Text>
                 </View>
                 <Text style={styles.eventLinkText}>Ver</Text>
               </TouchableOpacity>
@@ -645,6 +738,7 @@ const styles = StyleSheet.create({
   eventsLoadingText: { color: "#4B5563", fontFamily: "NunitoRegular" },
   eventsError: { color: "#B91C1C", fontFamily: "NunitoRegular", textAlign: "center" },
   eventsEmpty: { color: "#4B5563", fontFamily: "NunitoRegular", textAlign: "center" },
+  eventsNotice: { color: "#0F172A", fontFamily: "NunitoRegular", textAlign: "center" },
   eventCard: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   eventTitle: { fontFamily: "MontserratSemiBold", color: theme.text, fontSize: 17, marginBottom: 4 },
   eventMeta: { fontFamily: "NunitoRegular", color: "#4B5563", fontSize: 14, marginBottom: 2 },

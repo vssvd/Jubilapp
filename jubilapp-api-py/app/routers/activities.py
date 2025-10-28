@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from math import asin, cos, radians, sin, sqrt
 from typing import List, Optional
 
 import logging
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from firebase_admin import firestore
 from pydantic import ValidationError
@@ -71,11 +73,59 @@ def _normalize_tags(value: Optional[object]) -> Optional[List[str]]:
     return candidates or None
 
 
-def _snapshot_to_activity(snapshot) -> ActivityOut:
+def _to_float(value: Optional[object]) -> Optional[float]:
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    radius = 6371.0
+    dlat = radians(lat2 - lat1)
+    dlng = radians(lng2 - lng1)
+    value = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
+    return 2 * radius * asin(sqrt(value))
+
+
+def _normalize_city_token(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    stripped = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return stripped.lower().strip()
+
+
+def _location_candidates(data: dict) -> List[str]:
+    values: List[str] = []
+    location = data.get("location")
+    if isinstance(location, str) and location.strip():
+        values.append(location)
+
+    venue = data.get("venue")
+    if isinstance(venue, dict):
+        for key in ("address", "name"):
+            raw = venue.get(key)
+            if isinstance(raw, str) and raw.strip():
+                values.append(raw)
+    return values
+
+
+def _matches_city(data: dict, city: str) -> bool:
+    target = _normalize_city_token(city)
+    if not target:
+        return False
+    for chunk in _location_candidates(data):
+        candidate = _normalize_city_token(chunk)
+        if target in candidate:
+            return True
+    return False
+
+
+def _snapshot_to_activity(snapshot, *, distance_km: Optional[float] = None) -> ActivityOut:
     data = snapshot.to_dict() or {}
 
     date_time = _to_datetime(data.get("dateTime") or data.get("date_time"))
     created_at = _to_datetime(data.get("createdAt") or data.get("created_at"))
+    venue = data.get("venue")
 
     payload = {
         "id": snapshot.id,
@@ -89,6 +139,10 @@ def _snapshot_to_activity(snapshot) -> ActivityOut:
         "created_at": created_at or datetime.now(timezone.utc),
         "tags": _normalize_tags(data.get("tags")),
     }
+    if isinstance(venue, dict):
+        payload["venue"] = venue
+    if distance_km is not None:
+        payload["distance_km"] = round(float(distance_km), 3)
 
     return ActivityOut.model_validate(payload)
 
@@ -391,9 +445,56 @@ def list_upcoming_events(
         alias="daysAhead",
         description="Cuántos días hacia adelante mostrar",
     ),
+    radius_km: float = Query(20.0, ge=1.0, le=200.0, alias="radiusKm"),
+    city: Optional[str] = Query(None, min_length=1, max_length=120),
+    lat: Optional[float] = Query(None, ge=-90.0, le=90.0),
+    lng: Optional[float] = Query(None, ge=-180.0, le=180.0),
 ):
     now = datetime.now(timezone.utc)
     limit_dt = now + timedelta(days=days_ahead)
+
+    profile_city: Optional[str] = None
+    profile_lat: Optional[float] = None
+    profile_lng: Optional[float] = None
+
+    try:
+        profile_doc = db.collection("users").document(uid).get()
+        if profile_doc.exists:
+            profile_data = profile_doc.to_dict() or {}
+            profile_city = _normalize_text(profile_data.get("location_city"))
+            profile_lat = _to_float(profile_data.get("location_lat"))
+            profile_lng = _to_float(profile_data.get("location_lng"))
+    except Exception:
+        profile_city = None
+        profile_lat = None
+        profile_lng = None
+
+    explicit_city = _normalize_text(city)
+    target_city = explicit_city or profile_city
+
+    explicit_lat = lat if lat is not None else None
+    explicit_lng = lng if lng is not None else None
+
+    target_lat = explicit_lat if explicit_lat is not None else profile_lat
+    target_lng = explicit_lng if explicit_lng is not None else profile_lng
+
+    if (target_lat is None) or (target_lng is None):
+        target_lat = None
+        target_lng = None
+
+    if target_lat is None or target_lng is None:
+        use_coordinates = False
+    else:
+        use_coordinates = True
+
+    if not use_coordinates and not target_city:
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail={
+                "code": "location_required",
+                "message": "Actualiza tu ubicación o permite acceso a la ubicación para ver eventos cercanos.",
+            },
+        )
 
     query = _collection().where("type", "==", "event")
     query = query.where("dateTime", ">=", now)
@@ -405,23 +506,58 @@ def list_upcoming_events(
     query = query.order_by("dateTime", direction=firestore.Query.ASCENDING)
     query = query.order_by("createdAt", direction=firestore.Query.DESCENDING)
 
-    query = query.limit(limit)
-    if offset:
-        query = query.offset(offset)
+    fetch_limit = min(200, max(limit + offset, limit * 3, 50))
+    query = query.limit(fetch_limit)
 
-    events: List[ActivityOut] = []
+    collected: List[ActivityOut] = []
     snapshots = query.stream()
+    logger = logging.getLogger(__name__)
+
     for snap in snapshots:
-        try:
-            activity = _snapshot_to_activity(snap)
-        except ValidationError as exc:
-            logging.getLogger(__name__).warning(
-                "list_upcoming_events skipped invalid doc %s: %s", snap.id, exc,
-            )
+        data = snap.to_dict() or {}
+        venue = data.get("venue") if isinstance(data.get("venue"), dict) else None
+        event_lat = _to_float(venue.get("lat")) if venue else None
+        event_lng = _to_float(venue.get("lng")) if venue else None
+
+        include = True
+        distance: Optional[float] = None
+
+        if (
+            use_coordinates
+            and target_lat is not None
+            and target_lng is not None
+            and event_lat is not None
+            and event_lng is not None
+        ):
+            distance = _haversine_km(target_lat, target_lng, event_lat, event_lng)
+            if distance > radius_km:
+                include = False
+        elif use_coordinates:
+            if target_city:
+                include = _matches_city(data, target_city)
+            else:
+                include = False
+        elif target_city:
+            include = _matches_city(data, target_city)
+
+        if not include:
             continue
+
+        try:
+            activity = _snapshot_to_activity(snap, distance_km=distance)
+        except ValidationError as exc:
+            logger.warning("list_upcoming_events skipped invalid doc %s: %s", snap.id, exc)
+            continue
+
         if activity.date_time and activity.date_time >= now:
-            events.append(activity)
-    return events
+            collected.append(activity)
+
+    if offset:
+        collected = collected[offset:]
+    if len(collected) > limit:
+        collected = collected[:limit]
+
+    return collected
 
 
 @router.post("/seed/atemporales", response_model=ActivitiesSeedSummary)

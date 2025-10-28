@@ -107,8 +107,19 @@ export async function request<T>(
   try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
 
   if (!res.ok) {
-    const msg = data?.detail || data?.message || `HTTP ${res.status}: ${res.statusText}`;
-    throw new Error(msg);
+    const detail = data?.detail;
+    const message =
+      (typeof detail === "string" && detail) ||
+      (detail && typeof detail.message === "string" && detail.message) ||
+      data?.message ||
+      `HTTP ${res.status}: ${res.statusText}`;
+    const error = new Error(message) as Error & { status?: number; data?: any; code?: string };
+    error.status = res.status;
+    error.data = data;
+    if (detail && typeof detail === "object" && typeof detail.code === "string") {
+      error.code = detail.code;
+    }
+    throw error;
   }
   return data as T;
 }

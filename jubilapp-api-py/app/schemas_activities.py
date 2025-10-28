@@ -6,6 +6,39 @@ from typing import Dict, List, Optional
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 
+class ActivityVenue(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=200)
+    address: Optional[str] = Field(default=None, max_length=255)
+    lat: Optional[float] = Field(default=None)
+    lng: Optional[float] = Field(default=None)
+
+    @field_validator("name", "address", mode="before")
+    @classmethod
+    def _trim_text(cls, value: object) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        return str(value)
+
+    @field_validator("lat", "lng")
+    @classmethod
+    def _validate_coord(cls, value: object) -> Optional[float]:
+        if value is None:
+            return None
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            raise ValueError("Coordenada inválida")
+        return parsed
+
+    model_config = {
+        "extra": "forbid",
+        "populate_by_name": True,
+    }
+
+
 class ActivityBase(BaseModel):
     type: str = Field(..., min_length=1, max_length=50)
     title: str = Field(..., min_length=1, max_length=255)
@@ -19,6 +52,7 @@ class ActivityBase(BaseModel):
     link: str = Field(..., min_length=1, max_length=500)
     origin: str = Field(..., min_length=1, max_length=120)
     tags: Optional[List[str]] = Field(default=None)
+    venue: Optional[ActivityVenue] = Field(default=None)
 
     @field_validator("type", "title", "link", "origin", mode="before")
     @classmethod
@@ -94,6 +128,7 @@ class ActivityUpdate(BaseModel):
     link: Optional[str] = Field(default=None, min_length=1, max_length=500)
     origin: Optional[str] = Field(default=None, min_length=1, max_length=120)
     tags: Optional[List[str]] = Field(default=None)
+    venue: Optional[ActivityVenue] = Field(default=None)
 
     @field_validator("type", "title", "link", "origin", mode="before")
     @classmethod
@@ -149,6 +184,7 @@ class ActivityUpdate(BaseModel):
 class ActivityOut(ActivityBase):
     id: str
     created_at: datetime = Field(serialization_alias="createdAt")
+    distance_km: Optional[float] = Field(default=None, serialization_alias="distanceKm")
 
     model_config = {
         "from_attributes": True,

@@ -11,6 +11,13 @@ export type ActivityEvent = {
   origin: string;
   createdAt: string;
   tags?: string[] | null;
+  distanceKm?: number | null;
+  venue?: {
+    name?: string | null;
+    address?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+  } | null;
 };
 
 export type ActivityHistoryEntry = {
@@ -64,6 +71,10 @@ export type FetchUpcomingEventsOptions = {
   freeOnly?: boolean;
   matchMyInterests?: boolean;
   interests?: string[];
+  city?: string;
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
 };
 
 export async function fetchUpcomingEvents(options: FetchUpcomingEventsOptions = {}): Promise<ActivityEvent[]> {
@@ -78,6 +89,10 @@ export async function fetchUpcomingEvents(options: FetchUpcomingEventsOptions = 
       if (interest) params.append("interests", interest);
     });
   }
+  if (options.city) params.set("city", options.city);
+  if (typeof options.lat === "number") params.set("lat", String(options.lat));
+  if (typeof options.lng === "number") params.set("lng", String(options.lng));
+  if (typeof options.radiusKm === "number") params.set("radiusKm", String(options.radiusKm));
 
   const query = params.toString();
   const path = `/api/activities/events/upcoming${query ? `?${query}` : ""}`;
