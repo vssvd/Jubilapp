@@ -8,7 +8,7 @@ import { transcribeVoice } from "../api/voice";
 import { analyzeQuestionnaire, QuestionnaireResult } from "../api/ai";
 
 export type InterviewQuestion = {
-  id: "activities" | "learning" | "planning";
+  id: "activities" | "learning" | "planning" | "mobility";
   title: string;
   helper?: string;
   speech?: string;
@@ -41,6 +41,12 @@ const QUESTIONS: InterviewQuestion[] = [
     title: "¿Cómo te sientes respecto a tu planificación?",
     helper: "Cuéntanos si tienes claras tus metas o si necesitas orientación.",
     speech: "¿Cómo te sientes respecto a tu planificación para la jubilación?",
+  },
+  {
+    id: "mobility",
+    title: "¿Cómo describirías tu movilidad física hoy?",
+    helper: "Puedes decir si es baja, media o alta, o comentarnos si necesitas apoyo para moverte.",
+    speech: "¿Cómo describirías tu movilidad física hoy? Puedes responder baja, media o alta.",
   },
 ];
 
@@ -244,12 +250,14 @@ export function useInterview() {
     if (analysis || status === "analyzing") return;
     const interestAnswers = [responses.activities?.text, responses.learning?.text].filter((t): t is string => Boolean(t && t.trim()));
     const preparationAnswer = responses.planning?.text ?? null;
-    if (!interestAnswers.length && !preparationAnswer) return;
+    const mobilityAnswer = responses.mobility?.text ?? null;
+    if (!interestAnswers.length && !preparationAnswer && !mobilityAnswer) return;
     setStatus("analyzing");
     try {
       const result = await analyzeQuestionnaire({
         interest_answers: interestAnswers,
         preparation_answer: preparationAnswer,
+        mobility_answer: mobilityAnswer,
         store: true,
         session_id: sessionId,
       });

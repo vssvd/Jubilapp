@@ -103,15 +103,22 @@ export async function request<T>(
   clearTimeout(timeout);
 
   const text = await res.text();
+  if (!res.ok && __DEV__) {
+    console.error("[api] request failed", method, path, res.status, res.statusText, text);
+  }
   let data: any = {};
-  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { raw: text };
+  }
 
   if (!res.ok) {
     const detail = data?.detail;
     const message =
       (typeof detail === "string" && detail) ||
-      (detail && typeof detail.message === "string" && detail.message) ||
-      data?.message ||
+      (detail && typeof detail === "object" && typeof detail.message === "string" && detail.message) ||
+      (typeof data?.message === "string" && data.message) ||
       `HTTP ${res.status}: ${res.statusText}`;
     const error = new Error(message) as Error & { status?: number; data?: any; code?: string };
     error.status = res.status;

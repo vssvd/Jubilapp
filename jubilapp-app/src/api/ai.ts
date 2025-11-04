@@ -1,5 +1,5 @@
 import { request } from "./client";
-import { PreparationLevel } from "./preparation";
+import { PreparationLevel, MobilityLevel } from "./preparation";
 
 export type AiInterestSuggestion = {
   id: number;
@@ -11,6 +11,7 @@ export type AiInterestSuggestion = {
 export type QuestionnaireResult = {
   interests: AiInterestSuggestion[];
   preparation_level: PreparationLevel | null;
+  mobility_level: MobilityLevel | null;
   applied: boolean;
   session_id?: string;
 };
@@ -18,6 +19,7 @@ export type QuestionnaireResult = {
 export type QuestionnairePayload = {
   interest_answers?: string[];
   preparation_answer?: string | null;
+  mobility_answer?: string | null;
   top_k?: number;
   store?: boolean;
   session_id?: string;

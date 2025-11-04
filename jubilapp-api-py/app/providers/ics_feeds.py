@@ -14,11 +14,11 @@ class ICSFeed(TypedDict, total=False):
 
 FEEDS: List[ICSFeed] = [
     {
-        "name": "Jubilapp Eventos",
-        "city": "Santiago",
-        "lat": -33.4489,
-        "lng": -70.6693,
-        "url": "https://calendar.google.com/calendar/ical/1510ce0dffa41bbd00cc1933384cecd164789869e2dd88bb8be41b7237285020%40group.calendar.google.com/private-fe0ad891650695dd2f49abc97e99d25a/basic.ics",
+        "name": "Eventos Valparaíso",
+        "city": "Valparaíso",
+        "lat": -33.0458,
+        "lng": -71.6197,
+        "url": "https://storage.googleapis.com/jubilapp-22de9.firebasestorage.app/ics/eventos_valpo.ics",
         "country": "CL",
     },
 ]

@@ -5,12 +5,18 @@ import { useRouter } from "expo-router";
 
 import { theme } from "../lib/theme";
 import { useInterview } from "../hooks/useInterview";
-import { PreparationLevel } from "../api/preparation";
+import { PreparationLevel, MobilityLevel } from "../api/preparation";
 
 const PREPARATION_LABELS: Record<PreparationLevel, string> = {
   planificado: "Planificado",
   intermedio: "Intermedio",
   desorientado: "Desorientado",
+};
+
+const MOBILITY_LABELS: Record<MobilityLevel, string> = {
+  baja: "Baja exigencia",
+  media: "Movilidad media",
+  alta: "Movilidad alta",
 };
 
 export default function InterestsScreen() {
@@ -250,6 +256,11 @@ export default function InterestsScreen() {
             {analysis.preparation_level && (
               <Text style={{ marginTop: 14, color: "#047857", fontWeight: "700" }}>
                 Nivel estimado: {PREPARATION_LABELS[analysis.preparation_level]}
+              </Text>
+            )}
+            {analysis.mobility_level && (
+              <Text style={{ marginTop: 10, color: "#0369a1", fontWeight: "700" }}>
+                Movilidad declarada: {MOBILITY_LABELS[analysis.mobility_level]}
               </Text>
             )}
 

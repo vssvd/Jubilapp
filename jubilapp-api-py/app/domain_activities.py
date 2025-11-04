@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 import random
 import unicodedata
 
@@ -166,13 +166,40 @@ def _time_weight(pref: Optional[str], tod: str) -> int:
     return 1 if pref == tod else 0
 
 
+def _is_low_mobility_friendly(activity: Dict) -> bool:
+    if activity.get("energy") == "baja":
+        return True
+    return bool(activity.get("indoor"))
+
+
+def _mobility_weight(level: Optional[str], activity: Dict) -> int:
+    if level != "baja":
+        return 0
+
+    score = 0
+    energy = activity.get("energy")
+    if energy == "baja":
+        score += 4
+    elif energy == "media":
+        score -= 1
+    elif energy == "alta":
+        score -= 3
+
+    if activity.get("indoor"):
+        score += 2
+
+    return score
+
+
 def recommend_atemporales(
     user_interests: List[str],
     preparation_level: Optional[str] = None,
+    mobility_level: Optional[str] = None,
     *,
     limit: int = 10,
     categories: Optional[Iterable[str]] = None,
     time_of_day: Optional[str] = None,
+    reported_ids: Optional[Iterable[int]] = None,
 ) -> List[Dict]:
     names = {n.strip() for n in user_interests if n and n.strip()}
     allowed_categories = None
@@ -185,8 +212,26 @@ def recommend_atemporales(
         }
         allowed_categories = allowed or None
 
+    excluded: Set[int] = set()
+    if reported_ids:
+        for raw in reported_ids:
+            try:
+                excluded.add(int(raw))
+            except (TypeError, ValueError):
+                continue
+
     scored = []
     for a in ATEMPORAL_ACTIVITIES:
+        activity_id = a.get("id")
+        try:
+            numeric_id = int(activity_id)
+        except (TypeError, ValueError):
+            numeric_id = None
+
+        if numeric_id is not None and numeric_id in excluded:
+            # Penalización extrema: mantener fuera de los resultados.
+            continue
+
         category_name = get_category_for_activity(a)
         if allowed_categories:
             normalized = _normalize_category_token(category_name)
@@ -205,6 +250,7 @@ def recommend_atemporales(
         score += _duration_weight(preparation_level, a["duration_min"])  # preferencia por duración
         score += 1 if a.get("cost") == "gratis" else 0
         score += _time_weight(time_of_day, a.get("time_of_day", "cualquiera"))
+        score += _mobility_weight(mobility_level, a)
 
         # Preferencia suave por indoor cuando el nivel es desorientado
         if preparation_level == "desorientado" and a.get("indoor"):
@@ -231,6 +277,14 @@ def recommend_atemporales(
             item["suggested_time"] = suggest_time(item.get("time_of_day", "cualquiera"))
         item["category"] = get_category_for_activity(item)
         item.setdefault("is_fallback", False)
+        item.pop("accessibility_labels", None)
+
+        labels: List[str] = []
+        if mobility_level == "baja" and _is_low_mobility_friendly(activity):
+            labels.append("baja exigencia")
+        if labels:
+            item["accessibility_labels"] = labels
+
         return item
 
     if not scored:

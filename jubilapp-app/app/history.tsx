@@ -9,16 +9,24 @@ import {
   ScrollView,
   Pressable,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import BottomNav from "../components/BottomNav";
 import { theme } from "../src/lib/theme";
-import { ActivityHistoryEntry, fetchActivityHistory } from "../src/api/activities";
+import {
+  ActivityHistoryEntry,
+  ActivityReport,
+  fetchActivityHistory,
+  fetchActivityReports,
+  deleteActivityReport,
+} from "../src/api/activities";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
 type HistoryRange = "7d" | "30d" | "90d" | "365d" | "all";
+type ViewMode = "completed" | "hidden";
 
 const RANGE_OPTIONS: { key: HistoryRange; label: string; days?: number }[] = [
   { key: "7d", label: "7 días", days: 7 },
@@ -30,6 +38,10 @@ const RANGE_OPTIONS: { key: HistoryRange; label: string; days?: number }[] = [
 
 const NONE_CATEGORY = "__none__";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const VIEW_MODE_OPTIONS: { key: ViewMode; label: string }[] = [
+  { key: "completed", label: "Completadas" },
+  { key: "hidden", label: "Ocultas" },
+];
 
 function formatCompletedAt(value?: string | null): string {
   if (!value) return "Sin fecha registrada";
@@ -88,9 +100,13 @@ export default function HistoryScreen() {
   const [selectedRange, setSelectedRange] = useState<HistoryRange>("30d");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [allEntries, setAllEntries] = useState<ActivityHistoryEntry[]>([]);
+  const [reportedEntries, setReportedEntries] = useState<ActivityReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("completed");
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   const loadHistory = useCallback(
     async ({ silent }: { silent?: boolean } = {}) => {
@@ -98,6 +114,7 @@ export default function HistoryScreen() {
         setLoading(true);
       }
       setError(null);
+      setReportsError(null);
 
       try {
         const params: { fromDate?: string; toDate?: string; limit?: number } = { limit: 250 };
@@ -108,11 +125,33 @@ export default function HistoryScreen() {
           params.fromDate = from.toISOString();
           params.toDate = now.toISOString();
         }
-        const data = await fetchActivityHistory(params);
-        setAllEntries(data);
+        const [historyResult, reportsResult] = await Promise.allSettled([
+          fetchActivityHistory(params),
+          fetchActivityReports(),
+        ]);
+
+        if (historyResult.status === "fulfilled") {
+          setAllEntries(historyResult.value);
+        } else {
+          const message =
+            historyResult.reason?.message || historyResult.reason?.detail || "No pudimos cargar tu historial.";
+          setError(String(message));
+          setAllEntries([]);
+        }
+
+        if (reportsResult.status === "fulfilled") {
+          setReportedEntries(reportsResult.value);
+        } else {
+          const message =
+            reportsResult.reason?.message || reportsResult.reason?.detail || "No pudimos cargar tus ocultas.";
+          setReportsError(String(message));
+          setReportedEntries([]);
+        }
       } catch (e: any) {
         setError(e?.message || "No pudimos cargar tu historial.");
         setAllEntries([]);
+        setReportsError(e?.message || "No pudimos cargar tus ocultas.");
+        setReportedEntries([]);
       } finally {
         if (!silent) {
           setLoading(false);
@@ -134,6 +173,23 @@ export default function HistoryScreen() {
     setRefreshing(true);
     await loadHistory({ silent: true });
   }, [loadHistory]);
+
+  const handleRestore = useCallback(
+    async (report: ActivityReport) => {
+      if (restoringId) return;
+      setRestoringId(report.id);
+      try {
+        await deleteActivityReport(report.activityType, report.activityId);
+        setReportedEntries(prev => prev.filter(item => item.id !== report.id));
+        Alert.alert("Actividades", "La actividad volverá a aparecer en tus recomendaciones.");
+      } catch (e: any) {
+        Alert.alert("Actividades", e?.message || "No pudimos restaurar la actividad.");
+      } finally {
+        setRestoringId(null);
+      }
+    },
+    [restoringId],
+  );
 
   const categoryOptions = useMemo(() => {
     const labels = new Map<string, string>();
@@ -177,6 +233,19 @@ export default function HistoryScreen() {
       .map(([key, value]) => ({ key, ...value }));
   }, [filteredEntries]);
 
+  const sortedReports = useMemo(() => {
+    const copy = [...reportedEntries];
+    copy.sort((a, b) => {
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
+      if (Number.isNaN(aTime)) return 1;
+      if (Number.isNaN(bTime)) return -1;
+      return bTime - aTime;
+    });
+    return copy;
+  }, [reportedEntries]);
+
   return (
     <View
       style={[styles.container, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 108 }]}
@@ -187,120 +256,218 @@ export default function HistoryScreen() {
           <Text style={styles.titleText}>Historial de actividades</Text>
         </View>
         <Text style={styles.subtitle}>
-          Revisa tus actividades completadas, filtra por período y categoría para seguir tu progreso.
+          {viewMode === "completed"
+            ? "Revisa tus actividades completadas, filtra por período y categoría para seguir tu progreso."
+            : "Estas son las actividades que marcaste como “No me interesa”. Puedes revisarlas y restaurarlas cuando quieras."}
         </Text>
       </View>
 
-      <View style={styles.filters}>
-        <Text style={styles.filterLabel}>Rango de fechas</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-          {RANGE_OPTIONS.map(option => {
-            const active = selectedRange === option.key;
-            return (
-              <Pressable
-                key={option.key}
-                onPress={() => setSelectedRange(option.key)}
-                style={[styles.chip, active && styles.chipActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+      <View style={styles.modeSwitcher}>
+        {VIEW_MODE_OPTIONS.map(option => {
+          const active = viewMode === option.key;
+          return (
+            <Pressable
+              key={option.key}
+              onPress={() => setViewMode(option.key)}
+              style={[styles.modeChip, active && styles.modeChipActive]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>{option.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      <View style={styles.filters}>
-        <Text style={styles.filterLabel}>Categoría</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-          <Pressable
-            key="all"
-            onPress={() => setSelectedCategory(null)}
-            style={[styles.chip, selectedCategory === null && styles.chipActive]}
-            accessibilityRole="button"
-            accessibilityState={{ selected: selectedCategory === null }}
-          >
-            <Text style={[styles.chipText, selectedCategory === null && styles.chipTextActive]}>Todas</Text>
-          </Pressable>
-          {categoryOptions.map(([value, label]) => {
-            const active = selectedCategory === value;
-            return (
-              <Pressable
-                key={value}
-                onPress={() => setSelectedCategory(value)}
-                style={[styles.chip, active && styles.chipActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+      {viewMode === "completed" ? (
+        <>
+          <View style={styles.filters}>
+            <Text style={styles.filterLabel}>Rango de fechas</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+              {RANGE_OPTIONS.map(option => {
+                const active = selectedRange === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => setSelectedRange(option.key)}
+                    style={[styles.chip, active && styles.chipActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
 
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Resumen del período</Text>
-        <Text style={styles.summaryHighlight}>{filteredEntries.length} actividades</Text>
-        {summaryByPeriod.length > 0 ? (
-          summaryByPeriod.slice(0, 4).map(item => (
-            <View key={item.key} style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>{item.label}</Text>
-              <Text style={styles.summaryCount}>{item.count}</Text>
+          <View style={styles.filters}>
+            <Text style={styles.filterLabel}>Categoría</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+              <Pressable
+                key="all"
+                onPress={() => setSelectedCategory(null)}
+                style={[styles.chip, selectedCategory === null && styles.chipActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedCategory === null }}
+              >
+                <Text style={[styles.chipText, selectedCategory === null && styles.chipTextActive]}>Todas</Text>
+              </Pressable>
+              {categoryOptions.map(([value, label]) => {
+                const active = selectedCategory === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => setSelectedCategory(value)}
+                    style={[styles.chip, active && styles.chipActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>Resumen del período</Text>
+            <Text style={styles.summaryHighlight}>{filteredEntries.length} actividades</Text>
+            {summaryByPeriod.length > 0 ? (
+              summaryByPeriod.slice(0, 4).map(item => (
+                <View key={item.key} style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>{item.label}</Text>
+                  <Text style={styles.summaryCount}>{item.count}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.summaryEmpty}>Aún no hay registros para este filtro.</Text>
+            )}
+          </View>
+
+          {loading ? (
+            <View style={styles.loader}>
+              <ActivityIndicator color={theme.primary} size="large" />
+              <Text style={styles.loaderText}>Cargando historial…</Text>
             </View>
-          ))
-        ) : (
-          <Text style={styles.summaryEmpty}>Aún no hay registros para este filtro.</Text>
-        )}
-      </View>
-
-      {loading ? (
+          ) : error ? (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorTitle}>No pudimos cargar tus actividades.</Text>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={() => loadHistory()}>
+                <Text style={styles.retryButtonText}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredEntries}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => {
+                const category = (item.category || "").trim();
+                const origin = normalizeOrigin(item.origin);
+                return (
+                  <View style={styles.itemCard}>
+                    <Text style={styles.itemEmoji}>{item.emoji || "📝"}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      <Text style={styles.itemMeta}>{formatCompletedAt(item.completedAt || item.createdAt)}</Text>
+                      <View style={styles.itemMetaRow}>
+                        <Text style={category ? styles.itemBadge : styles.itemBadgeMuted}>
+                          {category ? `🎯 ${category}` : "Sin categoría"}
+                        </Text>
+                        {origin ? <Text style={styles.itemOrigin}>{origin}</Text> : null}
+                      </View>
+                    </View>
+                  </View>
+                );
+              }}
+              ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.primary} />
+              }
+              contentContainerStyle={
+                filteredEntries.length === 0
+                  ? styles.listEmptyContainer
+                  : { paddingBottom: 140, paddingTop: 12 }
+              }
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>
+                  Aún no registras actividades completadas en este período.
+                </Text>
+              }
+            />
+          )}
+        </>
+      ) : loading ? (
         <View style={styles.loader}>
           <ActivityIndicator color={theme.primary} size="large" />
-          <Text style={styles.loaderText}>Cargando historial…</Text>
+          <Text style={styles.loaderText}>Cargando actividades ocultas…</Text>
         </View>
-      ) : error ? (
+      ) : reportsError ? (
         <View style={styles.errorCard}>
-          <Text style={styles.errorTitle}>No pudimos cargar tus actividades.</Text>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorTitle}>No pudimos cargar tus actividades ocultas.</Text>
+          <Text style={styles.errorText}>{reportsError}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => loadHistory()}>
             <Text style={styles.retryButtonText}>Reintentar</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={filteredEntries}
+          data={sortedReports}
           keyExtractor={item => item.id}
           renderItem={({ item }) => {
             const category = (item.category || "").trim();
-            const origin = normalizeOrigin(item.origin);
             return (
-              <View style={styles.itemCard}>
-                <Text style={styles.itemEmoji}>{item.emoji || "📝"}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
-                  <Text style={styles.itemMeta}>{formatCompletedAt(item.completedAt || item.createdAt)}</Text>
-                  <View style={styles.itemMetaRow}>
-                    <Text style={category ? styles.itemBadge : styles.itemBadgeMuted}>
-                      {category ? `🎯 ${category}` : "Sin categoría"}
-                    </Text>
-                    {origin ? <Text style={styles.itemOrigin}>{origin}</Text> : null}
+              <View style={styles.hiddenCard}>
+                <View style={styles.hiddenHeader}>
+                  <Text style={styles.hiddenEmoji}>{item.emoji || "🙈"}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.hiddenTitle}>{item.title || `Actividad ${item.activityId}`}</Text>
+                    <Text style={styles.hiddenMeta}>{formatCompletedAt(item.createdAt)}</Text>
+                    <View style={styles.hiddenMetaRow}>
+                      <Text style={category ? styles.hiddenBadge : styles.hiddenBadgeMuted}>
+                        {category ? `🎯 ${category}` : "Sin categoría"}
+                      </Text>
+                      <Text style={styles.hiddenBadgeMuted}>Tipo: {item.activityType}</Text>
+                    </View>
                   </View>
+                </View>
+                {item.reason ? (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={styles.hiddenReasonLabel}>Motivo</Text>
+                    <Text style={styles.hiddenReason}>{item.reason}</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.hiddenReasonMuted}>Sin motivo adicional.</Text>
+                )}
+                <View style={styles.hiddenActions}>
+                  <TouchableOpacity
+                    onPress={() => handleRestore(item)}
+                    style={styles.hiddenRestoreButton}
+                    disabled={restoringId === item.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: restoringId === item.id }}
+                  >
+                    <Text style={styles.hiddenRestoreText}>
+                      {restoringId === item.id ? "Restaurando…" : "Mostrar nuevamente"}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             );
           }}
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.primary} />}
+          ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.primary} />
+          }
           contentContainerStyle={
-            filteredEntries.length === 0
+            sortedReports.length === 0
               ? styles.listEmptyContainer
               : { paddingBottom: 140, paddingTop: 12 }
           }
           ListEmptyComponent={
             <Text style={styles.emptyText}>
-              Aún no registras actividades completadas en este período.
+              No tienes actividades ocultas por ahora. Marca “No me interesa” en alguna actividad para verla aquí.
             </Text>
           }
         />
@@ -318,6 +485,18 @@ const styles = StyleSheet.create({
   titleEmoji: { fontSize: 26 },
   titleText: { fontFamily: "MontserratSemiBold", fontSize: 22, color: theme.text },
   subtitle: { marginTop: 6, color: "#4B5563", fontFamily: "NunitoRegular", lineHeight: 20 },
+  modeSwitcher: { flexDirection: "row", gap: 10, marginBottom: 18 },
+  modeChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    backgroundColor: "#fff",
+  },
+  modeChipActive: { backgroundColor: "#DBEAFE", borderColor: "#1D4ED8" },
+  modeChipText: { fontFamily: "NunitoRegular", color: "#4B5563" },
+  modeChipTextActive: { fontFamily: "MontserratSemiBold", color: "#1D4ED8" },
   filters: { marginBottom: 18 },
   filterLabel: { fontFamily: "MontserratSemiBold", color: theme.text, marginBottom: 8 },
   chipsRow: { gap: 8 },
@@ -402,4 +581,45 @@ const styles = StyleSheet.create({
   itemOrigin: { fontFamily: "NunitoRegular", color: "#047857", fontSize: 13 },
   listEmptyContainer: { paddingTop: 60, paddingBottom: 140, alignItems: "center" },
   emptyText: { fontFamily: "NunitoRegular", color: "#6B7280", textAlign: "center", paddingHorizontal: 12 },
+  hiddenCard: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    padding: 16,
+  },
+  hiddenHeader: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  hiddenEmoji: { fontSize: 28 },
+  hiddenTitle: { fontFamily: "MontserratSemiBold", fontSize: 17, color: theme.text },
+  hiddenMeta: { fontFamily: "NunitoRegular", color: "#6B7280", marginTop: 4 },
+  hiddenMetaRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  hiddenBadge: {
+    backgroundColor: "#FEF3C7",
+    color: "#92400E",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontFamily: "NunitoRegular",
+    fontSize: 13,
+  },
+  hiddenBadgeMuted: {
+    backgroundColor: "#F3F4F6",
+    color: "#6B7280",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontFamily: "NunitoRegular",
+    fontSize: 13,
+  },
+  hiddenReasonLabel: { fontFamily: "MontserratSemiBold", color: theme.text, marginBottom: 4 },
+  hiddenReason: { fontFamily: "NunitoRegular", color: "#374151", lineHeight: 20 },
+  hiddenReasonMuted: { fontFamily: "NunitoRegular", color: "#9CA3AF", marginTop: 8 },
+  hiddenActions: { marginTop: 14, flexDirection: "row", justifyContent: "flex-end" },
+  hiddenRestoreButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "#F59E0B",
+  },
+  hiddenRestoreText: { fontFamily: "MontserratSemiBold", color: "#fff" },
 });

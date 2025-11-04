@@ -1,0 +1,21 @@
+env: load .env.development
+env: export EXPO_PUBLIC_FIREBASE_API_KEY EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN EXPO_PUBLIC_FIREBASE_PROJECT_ID EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID EXPO_PUBLIC_FIREBASE_APP_ID EXPO_PUBLIC_API_BASE
+Starting project at /Users/vsvd/Documents/GitHub/Jubilapp/jubilapp-app
+Starting Metro Bundler
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+iOS node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+iOS Bundled 397ms node_modules/expo-router/entry.js (1368 modules)
+ LOG  [api] deriveDevApiBase -> 192.168.7.239
+ WARN  [expo-av]: Expo AV has been deprecated and will be removed in SDK 54. Use the `expo-audio` and `expo-video` packages to replace the required functionality.
+ WARN  [Layout children]: No route named "interests" exists in nested children: ["+not-found", "favorites", "history", "home", "index", "location", "login", "preparation", "profile", "register", "tutorial", "interests/assistant", "interests/index", "interests/manual"]
+iOS node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+iOS Bundled 251ms node_modules/expo-router/entry.js (1 module)
+ LOG  [api] deriveDevApiBase -> 192.168.7.239
+ WARN  [expo-av]: Expo AV has been deprecated and will be removed in SDK 54. Use the `expo-audio` and `expo-video` packages to replace the required functionality.
+ WARN  [Layout children]: No route named "interests" exists in nested children: ["+not-found", "favorites", "history", "home", "index", "location", "login", "preparation", "profile", "register", "tutorial", "interests/assistant", "interests/index", "interests/manual"]
+iOS node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+iOS Bundled 34ms node_modules/expo-router/entry.js (1 module)
+ LOG  [api] deriveDevApiBase -> 192.168.7.239
+ WARN  [expo-av]: Expo AV has been deprecated and will be removed in SDK 54. Use the `expo-audio` and `expo-video` packages to replace the required functionality.
+ WARN  [Layout children]: No route named "interests" exists in nested children: ["+not-found", "favorites", "history", "home", "index", "location", "login", "preparation", "profile", "register", "tutorial", "interests/assistant", "interests/index", "interests/manual"]

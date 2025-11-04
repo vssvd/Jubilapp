@@ -5,13 +5,19 @@ import { useRouter, useNavigation } from "expo-router";
 import { theme } from "../src/lib/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { logout } from "../src/api/auth";
-import { fetchPreparation, savePreparation, type PreparationLevel } from "../src/api/preparation";
+import { fetchPreparation, savePreparation, type PreparationLevel, type MobilityLevel } from "../src/api/preparation";
 import * as Location from "expo-location";
 
 const PREPARATION_OPTIONS: Array<{ key: PreparationLevel; title: string; description: string }> = [
   { key: "planificado", title: "Planificado", description: "Tengo metas y actividades definidas." },
   { key: "intermedio", title: "Intermedio", description: "Tengo ideas, pero no completamente organizadas." },
   { key: "desorientado", title: "Desorientado", description: "No sé por dónde empezar." },
+];
+
+const MOBILITY_OPTIONS: Array<{ key: MobilityLevel; title: string; description: string }> = [
+  { key: "baja", title: "Movilidad baja", description: "Prefiero actividades suaves o con poco desplazamiento." },
+  { key: "media", title: "Movilidad media", description: "Puedo moverme con pausas o distancias cortas." },
+  { key: "alta", title: "Movilidad alta", description: "No tengo limitaciones para desplazarme." },
 ];
 
 const AVATAR_SETS: Array<{ title: string; options: string[] }> = [
@@ -52,16 +58,19 @@ export default function ProfileScreen() {
   const [city, setCity] = useState("");
   const [region, setRegion] = useState("");
   const [preparation, setPreparation] = useState<PreparationLevel | null>(null);
+  const [mobility, setMobility] = useState<MobilityLevel | null>(null);
   const [prepSaving, setPrepSaving] = useState(false);
+  const [mobilitySaving, setMobilitySaving] = useState(false);
   const [showPrepPicker, setShowPrepPicker] = useState(false);
+  const [showMobilityPicker, setShowMobilityPicker] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [data, prepLevel] = await Promise.all([
+        const [data, prepInfo] = await Promise.all([
           fetchProfile(),
-          fetchPreparation().catch(() => null),
+          fetchPreparation().catch(() => ({ preparation_level: null, mobility_level: null })),
         ]);
         setFullName((data.full_name ?? "").toString());
         setEmail(data.email ?? null);
@@ -70,7 +79,8 @@ export default function ProfileScreen() {
         setAvatarEmoji((data.photo_url ?? null) as any);
         setCity((data.location_city ?? "").toString());
         setRegion((data.location_region ?? "").toString());
-        setPreparation((prepLevel ?? null) as PreparationLevel | null);
+        setPreparation((prepInfo?.preparation_level ?? null) as PreparationLevel | null);
+        setMobility((prepInfo?.mobility_level ?? null) as MobilityLevel | null);
       } catch (e: any) {
         Alert.alert("Sesión", e?.message ?? "Vuelve a iniciar sesión.");
       } finally {
@@ -97,14 +107,30 @@ export default function ProfileScreen() {
   const applyPreparationLevel = useCallback(async (level: PreparationLevel) => {
     setPrepSaving(true);
     try {
-      await savePreparation(level);
-      setPreparation(level);
+      const info = await savePreparation({ preparation_level: level });
+      setPreparation(info.preparation_level);
+      setMobility(info.mobility_level ?? null);
       Alert.alert("Nivel actualizado", "Guardamos tu nivel de preparación ✅");
       setShowPrepPicker(false);
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "No se pudo guardar el nivel");
     } finally {
       setPrepSaving(false);
+    }
+  }, []);
+
+  const applyMobilityLevel = useCallback(async (level: MobilityLevel) => {
+    setMobilitySaving(true);
+    try {
+      const info = await savePreparation({ mobility_level: level });
+      setMobility(info.mobility_level);
+      setPreparation(info.preparation_level ?? null);
+      Alert.alert("Movilidad actualizada", "Guardamos tu nivel de movilidad ✅");
+      setShowMobilityPicker(false);
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "No se pudo guardar la movilidad");
+    } finally {
+      setMobilitySaving(false);
     }
   }, []);
 
@@ -319,6 +345,19 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color={theme.primary} />
           </TouchableOpacity>
 
+          <Text style={[styles.label, { marginTop: 16 }]}>Movilidad física</Text>
+          <TouchableOpacity style={styles.prepChip} onPress={() => setShowMobilityPicker(true)} accessibilityRole="button">
+            <View>
+              <Text style={styles.prepChipTitle}>
+                {mobility ? MOBILITY_OPTIONS.find((o) => o.key === mobility)?.title ?? "Selecciona tu movilidad" : "Selecciona tu movilidad"}
+              </Text>
+              <Text style={styles.prepChipSubtitle} numberOfLines={1}>
+                {mobility ? MOBILITY_OPTIONS.find((o) => o.key === mobility)?.description ?? "" : "Tócalo para elegir"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.saveBtn} onPress={onSave} disabled={saving}>
             <Text style={styles.saveText}>{saving ? "Guardando…" : "Guardar cambios"}</Text>
           </TouchableOpacity>
@@ -383,6 +422,38 @@ export default function ProfileScreen() {
                     style={[styles.prepOption, active && styles.prepOptionActive]}
                     onPress={() => { if (!prepSaving) { void applyPreparationLevel(opt.key); } }}
                     disabled={prepSaving}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.prepTitle, active && styles.prepTitleActive]}>{opt.title}</Text>
+                      <Text style={styles.prepDescription}>{opt.description}</Text>
+                    </View>
+                    {active && <Ionicons name="checkmark-circle" size={22} color={theme.primary} style={{ marginLeft: 12 }} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={showMobilityPicker} transparent animationType="slide" onRequestClose={() => setShowMobilityPicker(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowMobilityPicker(false)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecciona tu movilidad</Text>
+              <TouchableOpacity onPress={() => setShowMobilityPicker(false)}>
+                <Text style={styles.modalClose}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.avatarPickerScroll}>
+              {MOBILITY_OPTIONS.map((opt) => {
+                const active = mobility === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[styles.prepOption, active && styles.prepOptionActive]}
+                    onPress={() => { if (!mobilitySaving) { void applyMobilityLevel(opt.key); } }}
+                    disabled={mobilitySaving}
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.prepTitle, active && styles.prepTitleActive]}>{opt.title}</Text>

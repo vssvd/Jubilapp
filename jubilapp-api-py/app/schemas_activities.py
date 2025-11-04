@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
@@ -395,6 +395,83 @@ class ActivityFavoriteCreate(ActivityFavoriteBase):
 
 
 class ActivityFavoriteOut(ActivityFavoriteBase):
+    id: str
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: Optional[datetime] = Field(default=None, serialization_alias="updatedAt")
+
+
+class ActivityReportBase(BaseModel):
+    activity_id: Union[str, int] = Field(
+        ...,
+        validation_alias=AliasChoices("activityId", "activity_id"),
+        serialization_alias="activityId",
+    )
+    activity_type: str = Field(
+        ...,
+        min_length=1,
+        max_length=60,
+        validation_alias=AliasChoices("activityType", "activity_type"),
+        serialization_alias="activityType",
+    )
+    reason: Optional[str] = Field(default=None, max_length=500)
+    title: Optional[str] = Field(default=None, max_length=255)
+    emoji: Optional[str] = Field(default=None, max_length=16)
+    category: Optional[str] = Field(default=None, max_length=120)
+
+    @field_validator("activity_type", mode="before")
+    @classmethod
+    def _normalize_type(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("El tipo de actividad es obligatorio")
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if not cleaned:
+                raise ValueError("El tipo de actividad es obligatorio")
+            return cleaned
+        return value
+
+    @field_validator("activity_id", mode="before")
+    @classmethod
+    def _normalize_id(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("El identificador es obligatorio")
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if not cleaned:
+                raise ValueError("El identificador es obligatorio")
+            return cleaned
+        if isinstance(value, (int, float)):
+            return value
+        raise ValueError("El identificador debe ser texto o número")
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def _trim_reason(cls, value: object) -> object:
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        return value
+
+    @field_validator("title", "emoji", "category", mode="before")
+    @classmethod
+    def _trim_optional_texts(cls, value: object) -> object:
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        return value
+
+    model_config = {
+        "extra": "forbid",
+        "populate_by_name": True,
+        "str_strip_whitespace": True,
+    }
+
+
+class ActivityReportCreate(ActivityReportBase):
+    pass
+
+
+class ActivityReportOut(ActivityReportBase):
     id: str
     created_at: datetime = Field(serialization_alias="createdAt")
     updated_at: Optional[datetime] = Field(default=None, serialization_alias="updatedAt")

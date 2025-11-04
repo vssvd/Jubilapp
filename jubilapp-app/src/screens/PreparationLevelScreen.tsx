@@ -8,10 +8,11 @@ import {
   Modal,
   TextInput,
   StyleSheet,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { fetchPreparation, savePreparation, PreparationLevel } from "../api/preparation";
+import { fetchPreparation, savePreparation, PreparationLevel, MobilityLevel } from "../api/preparation";
 import { analyzeQuestionnaire } from "../api/ai";
 import { theme } from "../lib/theme";
 
@@ -25,10 +26,21 @@ const OPTIONS: Option[] = [
 
 const labelFor = (level: PreparationLevel) => OPTIONS.find((opt) => opt.key === level)?.title ?? level;
 
+type MobilityOption = { key: MobilityLevel; title: string; description: string };
+
+const MOBILITY_OPTIONS: MobilityOption[] = [
+  { key: "baja", title: "Movilidad baja", description: "Prefiero actividades suaves, cortas o en casa." },
+  { key: "media", title: "Movilidad media", description: "Puedo moverme con algo de esfuerzo o descansos." },
+  { key: "alta", title: "Movilidad alta", description: "Me desplazo sin problemas y puedo hacer actividad física." },
+];
+
+const labelMobility = (level: MobilityLevel) => MOBILITY_OPTIONS.find((opt) => opt.key === level)?.title ?? level;
+
 export default function PreparationLevelScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState<PreparationLevel | null>(null);
+  const [selectedMobility, setSelectedMobility] = useState<MobilityLevel | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [aiVisible, setAiVisible] = useState(false);
@@ -40,7 +52,8 @@ export default function PreparationLevelScreen() {
     (async () => {
       try {
         const current = await fetchPreparation();
-        setSelected(current);
+        setSelected(current.preparation_level);
+        setSelectedMobility(current.mobility_level);
       } catch {
         Alert.alert("Error", "No se pudo cargar tu nivel de preparación.");
       } finally {
@@ -64,13 +77,23 @@ export default function PreparationLevelScreen() {
       });
       if (result.preparation_level) {
         setSelected(result.preparation_level);
+      }
+      if (result.mobility_level) {
+        setSelectedMobility(result.mobility_level);
+      }
+      if (result.preparation_level || result.mobility_level) {
         setAiApplied(Boolean(result.applied));
         setAiVisible(false);
         setAiText("");
-        Alert.alert(
-          "Listo",
-          `Nivel estimado: ${labelFor(result.preparation_level)}${result.applied ? "\n\n✅ Ya lo guardamos en tu perfil." : ""}`,
-        );
+        const details: string[] = [];
+        if (result.preparation_level) {
+          details.push(`Nivel estimado: ${labelFor(result.preparation_level)}`);
+        }
+        if (result.mobility_level) {
+          details.push(`Movilidad detectada: ${labelMobility(result.mobility_level)}`);
+        }
+        const stored = result.applied ? "\n\n✅ Ya lo guardamos en tu perfil." : "";
+        Alert.alert("Listo", `${details.join("\n")}${stored}`.trim());
       } else {
         Alert.alert("Sin resultado", "La IA no pudo estimar tu nivel. Intenta con más detalle.");
       }
@@ -83,9 +106,10 @@ export default function PreparationLevelScreen() {
 
   const onSave = async () => {
     if (!selected) return Alert.alert("Selecciona un nivel", "Debes elegir exactamente uno.");
+    if (!selectedMobility) return Alert.alert("Selecciona tu movilidad", "Indica cómo te mueves actualmente.");
     setSaving(true);
     try {
-      await savePreparation(selected);
+      await savePreparation({ preparation_level: selected, mobility_level: selectedMobility });
       Alert.alert("Listo", "Tu nivel fue guardado.", [
         { text: "Ir al inicio", onPress: () => router.replace({ pathname: "/home", params: { onboard: "1" } }) },
       ]);
@@ -107,6 +131,11 @@ export default function PreparationLevelScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
       <Modal
         animationType="slide"
         transparent
@@ -160,9 +189,12 @@ export default function PreparationLevelScreen() {
         </Text>
       </TouchableOpacity>
 
-      {aiApplied && selected && (
+      {aiApplied && (selected || selectedMobility) && (
         <View style={styles.aiAppliedBanner}>
-          <Text style={styles.aiAppliedText}>🤖 Nivel sugerido y guardado: {labelFor(selected)}</Text>
+          <Text style={styles.aiAppliedText}>
+            🤖 Guardado: {selected ? labelFor(selected) : "—"}
+            {selectedMobility ? ` · ${labelMobility(selectedMobility)}` : ""}
+          </Text>
         </View>
       )}
 
@@ -184,6 +216,27 @@ export default function PreparationLevelScreen() {
         );
       })}
 
+      <Text style={[styles.title, { fontSize: 20, marginTop: 24 }]}>Describe tu movilidad física</Text>
+      <Text style={styles.subtitle}>Selecciona la opción que mejor te represente.</Text>
+
+      {MOBILITY_OPTIONS.map((opt) => {
+        const active = selectedMobility === opt.key;
+        return (
+          <TouchableOpacity
+            key={opt.key}
+            onPress={() => {
+              setSelectedMobility(opt.key);
+              setAiApplied(false);
+            }}
+            style={[styles.optionCard, active && styles.optionCardActive]}
+          >
+            <Text style={styles.optionTitle}>{opt.title}</Text>
+            <Text style={styles.optionDescription}>{opt.description}</Text>
+            {active && <Text style={styles.optionBadge}>Seleccionado</Text>}
+          </TouchableOpacity>
+        );
+      })}
+
       <TouchableOpacity
         onPress={onSave}
         disabled={saving}
@@ -191,6 +244,7 @@ export default function PreparationLevelScreen() {
       >
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Guardar</Text>}
       </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -199,6 +253,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.bg },
   loadingText: { marginTop: 8, color: theme.muted },
   screen: { flex: 1, paddingHorizontal: 16, backgroundColor: theme.bg },
+  scrollContent: { flexGrow: 1, paddingBottom: 32 },
   title: { fontSize: 24, fontWeight: "800", color: theme.text },
   subtitle: { color: theme.muted, marginVertical: 10 },
   assistantCard: {

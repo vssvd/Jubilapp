@@ -3,7 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
-from app.domain_ai import analyze_questionnaire
+from app.domain_ai import analyze_questionnaire, MOBILITY_LEVELS
+from app.domain_mobility import validate_mobility_level
 from app.firebase import db
 from app.schemas_ai import QuestionnaireIn, QuestionnaireOut, SuggestedInterest
 from app.security import get_current_uid
@@ -23,6 +24,7 @@ def run_questionnaire(
         result = analyze_questionnaire(
             interest_answers=payload.interest_answers,
             preparation_answer=payload.preparation_answer,
+            mobility_answer=payload.mobility_answer,
             top_k=payload.top_k,
         )
     except HuggingFaceConfigError as exc:
@@ -34,6 +36,11 @@ def run_questionnaire(
 
     interests = [SuggestedInterest(**row) for row in result.get("interests", [])]
     preparation_level = result.get("preparation_level")
+    raw_mobility = result.get("mobility_level")
+    try:
+        mobility_level = validate_mobility_level(raw_mobility)
+    except ValueError:
+        mobility_level = None
 
     applied = False
     if payload.store:
@@ -46,6 +53,8 @@ def run_questionnaire(
                 update["interests_updated_at"] = SERVER_TIMESTAMP
         if preparation_level:
             update["preparation_level"] = preparation_level
+        if mobility_level in MOBILITY_LEVELS:
+            update["mobility_level"] = mobility_level
         if len(update.keys()) > 1:
             db.collection("users").document(uid).set(update, merge=True)
             applied = True
@@ -53,6 +62,7 @@ def run_questionnaire(
             summary = {
                 "interests": [i.model_dump() for i in interests],
                 "preparation_level": preparation_level,
+                "mobility_level": mobility_level if mobility_level in MOBILITY_LEVELS else None,
                 "status": "completed" if applied else "draft",
             }
             try:
@@ -63,6 +73,7 @@ def run_questionnaire(
     return QuestionnaireOut(
         interests=interests,
         preparation_level=preparation_level,
+        mobility_level=mobility_level if mobility_level in MOBILITY_LEVELS else None,
         applied=applied,
         session_id=payload.session_id,
     )

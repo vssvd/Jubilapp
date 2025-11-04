@@ -10,6 +10,8 @@ API
 ---
 - Endpoint: `GET /api/recommendations/atemporales?limit=8&tod=manana|tarde|noche|cualquiera`.
 - Usa intereses del usuario (`users.interests` o `interest_ids`) y su `preparation_level` para calcular un score.
+- Cuando el perfil indica `mobility_level = "baja"`, se priorizan actividades de baja exigencia o indoor y se añade la etiqueta `baja exigencia` en la respuesta para mostrarlas en la UI.
+- El cuestionario asistido solicita al usuario describir su movilidad física y guarda `mobility_level` (`baja`, `media`, `alta`) automáticamente cuando la respuesta se puede clasificar.
 
 Cómo agregar/editar actividades
 -------------------------------
@@ -20,4 +22,3 @@ Notas
 -----
 - La lógica es determinista salvo por un ligero ruido aleatorio para diversidad.
 - Si en el futuro se quiere integrar un motor externo (p. ej. BERT), se puede reemplazar la implementación de `recommend_atemporales` sin tocar el contrato del endpoint.
-

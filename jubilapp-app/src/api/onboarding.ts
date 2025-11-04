@@ -14,11 +14,10 @@ export async function hasInterests(): Promise<boolean> {
 /** true si NO tiene nivel de preparación aún */
 export async function needsPreparation(): Promise<boolean> {
   try {
-    const level = await fetchPreparation(); // "planificado" | "intermedio" | "desorientado" | null
-    return level == null;
+    const info = await fetchPreparation();
+    return info.preparation_level == null;
   } catch {
     // si falla, asumimos que falta (para empujar al onboarding)
     return true;
   }
 }
-

@@ -19,12 +19,21 @@ from app.schemas_activities import (
     ActivityUpdate,
     ActivityFavoriteCreate,
     ActivityFavoriteOut,
+    ActivityReportCreate,
+    ActivityReportOut,
     ActivitiesSeedSummary,
     ActivitiesSyncSummary,
 )
 from app.security import get_current_uid, get_current_uid_or_task
 from app.services.activities_seed import seed_atemporal_activities
 from app.services.activities_sync_ics import sync_ics_events
+from app.services.activity_reports import (
+    report_activity,
+    delete_report,
+    list_reports,
+    reported_tokens,
+    should_exclude,
+)
 from app.services.user_interests import get_user_interest_names
 
 
@@ -210,6 +219,23 @@ def _snapshot_to_favorite(snapshot) -> ActivityFavoriteOut:
     return ActivityFavoriteOut.model_validate(payload)
 
 
+def _report_to_schema(row) -> ActivityReportOut:
+    created_at = row.created_at or datetime.now(timezone.utc)
+    updated_at = row.updated_at
+    payload = {
+        "id": row.id,
+        "activity_id": row.activity_id,
+        "activity_type": row.activity_type,
+        "reason": row.reason,
+        "title": row.title,
+        "emoji": row.emoji,
+        "category": row.category,
+        "created_at": created_at,
+        "updated_at": updated_at,
+    }
+    return ActivityReportOut.model_validate(payload)
+
+
 @router.post("", response_model=ActivityOut, status_code=status.HTTP_201_CREATED)
 def create_activity(
     payload: ActivityCreate,
@@ -289,8 +315,12 @@ def list_activities(
 
     snapshots = query.stream()
     activities: List[ActivityOut] = []
+    excluded_tokens = reported_tokens(uid)
     for snap in snapshots:
-        activities.append(_snapshot_to_activity(snap))
+        activity = _snapshot_to_activity(snap)
+        if should_exclude(excluded_tokens, activity.type, activity.id):
+            continue
+        activities.append(activity)
     return activities
 
 
@@ -316,6 +346,69 @@ def create_history_entry(
     if not snapshot.exists:
         raise HTTPException(status_code=500, detail="No se pudo guardar el historial")
     return _snapshot_to_history(snapshot)
+
+
+@router.get("/reports", response_model=List[ActivityReportOut])
+def list_activity_reports(
+    activity_type: Optional[str] = Query(
+        None,
+        alias="activityType",
+        description="Filtra por tipo de actividad (p. ej. atemporal, event).",
+    ),
+    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+):
+    rows = list_reports(uid, activity_type=activity_type)
+    return [_report_to_schema(row) for row in rows]
+
+
+@router.post("/reports", response_model=ActivityReportOut, status_code=status.HTTP_201_CREATED)
+def create_activity_report(
+    payload: ActivityReportCreate,
+    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+):
+    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
+    try:
+        logger.info(
+            "create_activity_report uid=%s type=%s id=%s reason=%s",
+            uid,
+            payload.activity_type,
+            payload.activity_id,
+            (payload.reason or "").strip() if payload.reason else None,
+        )
+        row = report_activity(
+            uid,
+            activity_type=payload.activity_type,
+            activity_id=str(payload.activity_id),
+            reason=payload.reason,
+            title=payload.title,
+            emoji=payload.emoji,
+            category=payload.category,
+        )
+    except ValueError as exc:
+        logger.warning("create_activity_report invalid payload for uid %s: %s", uid, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("create_activity_report failed for uid %s", uid)
+        message = str(exc) or getattr(exc, "details", None) or repr(exc) or "No se pudo guardar el reporte"
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": message,
+                "error_type": exc.__class__.__name__,
+            },
+        ) from exc
+    return _report_to_schema(row)
+
+
+@router.delete("/reports/{activity_type}/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_activity_report(
+    activity_type: str,
+    activity_id: str,
+    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+):
+    delete_report(uid, activity_type=activity_type, activity_id=activity_id)
+    return None
 
 
 @router.get("/history", response_model=List[ActivityHistoryOut])
@@ -452,6 +545,7 @@ def list_upcoming_events(
 ):
     now = datetime.now(timezone.utc)
     limit_dt = now + timedelta(days=days_ahead)
+    excluded_tokens = reported_tokens(uid)
 
     profile_city: Optional[str] = None
     profile_lat: Optional[float] = None
@@ -547,6 +641,8 @@ def list_upcoming_events(
             activity = _snapshot_to_activity(snap, distance_km=distance)
         except ValidationError as exc:
             logger.warning("list_upcoming_events skipped invalid doc %s: %s", snap.id, exc)
+            continue
+        if should_exclude(excluded_tokens, activity.type, activity.id):
             continue
 
         if activity.date_time and activity.date_time >= now:

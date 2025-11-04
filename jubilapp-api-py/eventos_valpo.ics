@@ -1,0 +1,511 @@
+BEGIN:VCALENDAR
+PRODID:-//Jubilapp//Eventos importados//ES
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:chilecultura-a08b89a7f64f07f517eaf3d7@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250814T190000Z
+DTEND:20251031T213000Z
+SUMMARY:CAPUCHAS: identidad colectiva y símbolo de resistencia
+DESCRIPTION:Una exposición que transita entre la fotografía\, el stencil y la performance\, y que convierte el anonimato en símbolo colectivo de lucha feminista se despliega en la Galería de Arte de BAJ Valparaíso.
+LOCATION:Balmaceda Arte Joven Valparaíso
+URL:https://chilecultura.gob.cl/events/33928/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-b7bdccdf8ac6fb4cee3f834e@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251025T223000Z
+DTEND:20251101T030000Z
+SUMMARY:Festival Internacional de Fotografía de Valparaíso FIFV 2025
+DESCRIPTION:Casa Espacio Buenos Aires 824\, institución que organiza el festival con el financiamiento del PAOCC 2025 del Ministerio de las Culturas\, las Artes y el Patrimonio\, lanza una programación que se desplazará por cerros y plan de Valparaíso entre el 25 de octubre y el 1 de noviembre.
+LOCATION:Casa Espacio Buenos Aires 824
+URL:https://chilecultura.gob.cl/events/35227/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-7ef70dfb07a647aa148e3e45@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251101T210000Z
+DTEND:20251101T213500Z
+SUMMARY:Travesía por otros mundos\, en Casa OANI
+DESCRIPTION:¡Un viaje poético de marionetas\, sombras y objetos nos espera en Casa OANI! Este sábado 1 de noviembre a las 18:00 horas te invitamos a disfrutar “Travesía por otros mundos”\, un montaje de Lola y su Compañía\, Teatro de Marionetas.
+LOCATION:Casa OANI
+URL:https://chilecultura.gob.cl/events/34918/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-ce773d09e2e9611cd0d2a5b7@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251031T003000Z
+DTEND:20251104T030000Z
+SUMMARY:Re-Estreno 50 años: “The Rocky Horror Picture Show”
+DESCRIPTION:Re-Estreno 50 años: “The Rocky Horror Picture Show” de Jim Sharman. Cuando una pareja regresa de la boda de unos amigos\, estalla una violenta tormenta y el coche se les avería. Así las cosas\, no tienen más remedio que refugiarse en un castillo\, donde el doctor Frank-N-Furter vive entregado a la fabricación de una especie de Frankenstein.
+LOCATION:Insomnia Teatro Condell
+URL:https://chilecultura.gob.cl/events/35260/
+X-JUBILAPP-PRICE:4000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-dc6ba2dc255c4afd5fe30576@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251107T230000Z
+DTEND:20251108T030000Z
+SUMMARY:Carlos Cabezas 40 años Valparaíso
+DESCRIPTION:Con un repertorio histórico y trascendental\, Carlos Cabezas prepara la conmemoración en vivo de sus 40 años de carrera con “Mil Cabezas”\, un show único e irrepetible en el Teatro Municipal de Valparaíso.
+LOCATION:Teatro municipal de Valparaíso
+URL:https://chilecultura.gob.cl/events/34790/
+X-JUBILAPP-PRICE:18000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-bb7202ce1563329062bd90ff@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251108T180000Z
+DTEND:20251108T210000Z
+SUMMARY:Taller de encuadernación japonesa por @mantodeestrellas.cl
+DESCRIPTION:Aprende a hacer tus propias libretas con esta técnica sencilla e ideal para principiantes.
+LOCATION:Librería Leon's Books
+URL:https://chilecultura.gob.cl/events/35239/
+X-JUBILAPP-PRICE:22000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-665a4bd5d6fd0e6777f66464@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251108T220000Z
+DTEND:20251108T230000Z
+SUMMARY:Monumentos: Teatro musical con elenco ciudadano
+DESCRIPTION:Monumentos pone en escena la historia de un pueblo que lucha por conservar su memoria y su identidad\, en una travesía que los enfrenta al implacable paso del tiempo y las fuerzas de la naturaleza.
+LOCATION:Centro Cultural San Antonio
+URL:https://chilecultura.gob.cl/events/35263/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-9c609fab559f8a40577835ee@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251112T213000Z
+DTEND:20251112T233000Z
+SUMMARY:Selección de Emily Dickinson en "Círculo de los poetas lectores"
+DESCRIPTION:Este mes de noviembre estaremos acompañados de la gran Emily Dickinson\, una autora que ha estado saliendo de la oscuridad del olvido para impactarnos con su conexión con la vida (y la muerte) y sus reflexiones sobre esta.
+LOCATION:Librería Leon's Books
+URL:https://chilecultura.gob.cl/events/35195/
+X-JUBILAPP-PRICE:6000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-068a3e4358d12f9039fbc473@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251114T230000Z
+DTEND:20251115T010000Z
+SUMMARY:Chinoy protagoniza la Tercera Velada Lumbre: música a la luz de las velas
+DESCRIPTION:Te invitamos a ser parte de la tercera Velada Lumbre: una experiencia íntima para disfrutar de música en vivo y buena conversación a la luz de las velas.
+LOCATION:Fundación Lumbre
+URL:https://chilecultura.gob.cl/events/35242/
+X-JUBILAPP-PRICE:5000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-c80d50a7ca0de927339f22ea@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251017T130000Z
+DTEND:20251115T223000Z
+SUMMARY:Exposición Taller de Arpilleras por Palestina y Arpilleras Históricas
+DESCRIPTION:La Exposición Taller de Arpilleras por Palestina y Arpilleras Históricas refleja el trabajo de mujeres que a través de esta técnica textil\, reconocida como patrimonio inmaterial en nuestro país\, manifiestan su pensar y sentir en relación a injusticas o reivindicaciones históricas y político-sociales del país y el mundo.
+LOCATION:Parque Cultural de Valparaíso
+URL:https://chilecultura.gob.cl/events/35178/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-1d71463576211bea656b8837@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251115T190000Z
+DTEND:20251115T210000Z
+SUMMARY:"El peso de las palabras" (Taller de narrativa V)
+DESCRIPTION:A peticion de los participantes\, esta vez hablaremos sobre los diálogos en las historias\, cómo se construyen conversaciones memorables\, manejar el ritmo de las palabras e intervenciones\, todo eso y otros detalles se conversarÁn y analizarán en este nuevo taller.
+LOCATION:Librería Leon's Books
+URL:https://chilecultura.gob.cl/events/35150/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-e4881c152455dd87e89d56c3@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250930T213000Z
+DTEND:20251118T233000Z
+SUMMARY:Coro de la gente: taller de canto colectivo con Fernando Milagros en Limache
+DESCRIPTION:Les invitamos a formar parte de “Coro de la Gente”\, taller de canto colectivo que será impartido por el músico y productor nacional Fernando Milagros
+LOCATION:Fundación Lumbre
+URL:https://chilecultura.gob.cl/events/34545/
+X-JUBILAPP-PRICE:30000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-020db692c9edcbde5c6a166c@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251010T130000Z
+DTEND:20251121T200000Z
+SUMMARY:Bravura: Una exposición en homenaje a Gabriela Mistral
+DESCRIPTION:La exposición\, inspirada en la vida y obra de Mistral\, contará con obras de las artistas visuales Macarena Hevia\, Virginia Opazo\, Daniela Jacques y Bethania Mac-Lean. La muestra incluirá una variedad de técnicas y materiales\, como grabados\, dibujo\, xilografías\, cerámica\, bordados\, trabajos de arte textil\, mosaicos y un lienzo realizado por las y los estudiantes de la comunidad educativa Waldorf Almar de Isla Negra.
+LOCATION:Biblioteca Pública de Las Cruces
+URL:https://chilecultura.gob.cl/events/34702/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-31daa2e4dfead02e7b2f192f@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251121T213000Z
+DTEND:20251121T233000Z
+SUMMARY:Confesiones de una máscara en el Club de literatura asiática de Leon's Books
+DESCRIPTION:Koo-chan es un adolescente en el Japón de posguerra que lucha por ocultar su pulsiones sexuales hacia hombres y sus fantasías violentas bajo una fachada de normalidad.
+LOCATION:Librería Leon's Books
+URL:https://chilecultura.gob.cl/events/35257/
+X-JUBILAPP-PRICE:7000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-48705cea5339d0ccac567ea9@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250804T150000Z
+DTEND:20251124T160000Z
+SUMMARY:Club de lectura: Bordadoras de letras
+DESCRIPTION:La Biblioteca Pública de El Quisco tiene el agrado de invitar a todas las mujeres de la comunidad a formar parte de un nuevo y enriquecedor Taller de Lectura. Este espacio está diseñado para ser un punto de encuentro\, reflexión y crecimiento personal a través de la literatura. Durante el taller\, te entregaremos las herramientas necesarias para que puedas analizar y conversar a fondo sobre diversos libros\; profundizar y analizar el contenido de cada libro a estudiar\, donde podamos ver más allá de la historia y poder entender los temas\, mensajes y contextos. Este será un espacio para conectar con otras mujeres\, compartir ideas y disfrutar del placer de la lectura de una manera más consciente y profunda.
+LOCATION:Biblioteca Carlos Condell
+URL:https://chilecultura.gob.cl/events/33892/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-e8e909a7640389ecbf1d9118@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250806T200000Z
+DTEND:20251126T210000Z
+SUMMARY:Taller de novela gráfica
+DESCRIPTION:La Biblioteca Pública de El Quisco tiene el agrado de invitar a toda la comunidad a participar en su Primer Taller de Novela Gráfica. Este taller está diseñado para ser una instancia de fomento de la creatividad\, la participación y el gusto por el dibujo. Los participantes\, a través de una metodología práctica y guiada\, podrán explorar el fascinante mundo de la novela gráfica como una forma de expresión artística. El objetivo principal es que los asistentes puedan comprender y aplicar la relación intrínseca entre palabras e imágenes para contar sus propias historias.
+LOCATION:Biblioteca Carlos Condell
+URL:https://chilecultura.gob.cl/events/33888/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-38efe4a85ea8dd446281a9bb@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250402T190000Z
+DTEND:20251126T210000Z
+SUMMARY:Taller de lectura Navio del saber
+DESCRIPTION:Se invita a toda la comunidad lectora de la Biblioteca y púbico en general a formar parte de un espacio de encuentro\; de una conversación amena y enriquecedora que permita exponer y compartir ideas\; explorar nuevos autores\, escritores\, y nuevas historias que permitan disfrutar de una buena lectura en los espacios que ofrece la Biblioteca de El Quisco.
+LOCATION:Biblioteca Municipal Carlos Condell
+URL:https://chilecultura.gob.cl/events/31738/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-e1c2dd255562798c7b1b304e@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251129T150000Z
+DTEND:20251129T210000Z
+SUMMARY:¡Haz sonar tu música! 2° Micrófono Abierto de Lumbre te espera [Abre convocatoria]
+DESCRIPTION:Fundación Lumbre abre la convocatoria para músicos y artistas locales al 2do MICRÓFONO ABIERTO.
+LOCATION:Fundación Lumbre
+URL:https://chilecultura.gob.cl/events/35240/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-5ea1877c8557cd87cf415fab@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251128T213000Z
+DTEND:20251128T233000Z
+SUMMARY:"Noches blancas" en Leon's Book club
+DESCRIPTION:"Los lentes de León"\, es un club enfocado en lecturas cortas en densidad de páginas\, pero que nos lleven en reflexiones profundas sobre la vida\, el amor y todo aquello que nos hace humanos. Partiremos con un clásico ruso ineludible\, "Noches blancas" de Dostoievski\, con la nostalgia del invierno cada vez más lejano.
+LOCATION:Librería Leon's Books
+URL:https://chilecultura.gob.cl/events/35152/
+X-JUBILAPP-PRICE:6000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-ea367eb8a56ef2ed2964e5e6@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250605T150000Z
+DTEND:20251127T160000Z
+SUMMARY:Taller de Fragmentos Integrados
+DESCRIPTION:La Biblioteca Carlos Condell de El Quisco\, invita a toda la comunidad a participar en un espacio único\, diseñado para explorar la creatividad y enriquecer el lenguaje a través del fascinante mundo de la ficción. Nos sumergiremos en el proceso creativo para desarrollar personajes memorables\, construir tramas envolventes y enriquecer el lenguaje con figuras literarias. Cada participante aportará sus propias ideas\, sus "fragmentos" de imaginación\, y juntos los uniremos en una gran obra literaria\, convirtiendo tus ideas en una fascinante historia para leer.
+LOCATION:Biblioteca Carlos Condell
+URL:https://chilecultura.gob.cl/events/33900/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-096f0d4acb2f161437e4ff6a@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART;VALUE=DATE:20251127
+DTEND;VALUE=DATE:20251201
+SUMMARY:Rockódromo 2025
+DESCRIPTION:Rockódromo 2025 -organizado por el Ministerio de las Culturas\, las Artes y el Patrimonio a través del programa Escuelas de Rock y Música Popular- se realizará desde el 27 al 30 de noviembre en distintas locaciones de Valparaíso. Entre los nombres que protagonizan esta edición están dos leyendas de la música nacional\, como son Illapu y Quilapayún\; el debut de Saiko en la fiesta porteña\; el metal de exportación de Criminal\; el momento estelar de Francisca Valenzuela\; la vigencia del pop urbano con Princesa Alba y Soulfía. La lista de invitados nacionales la completan Javiera Mena\, Bronco Yotte\, Kuervos del Sur\, Catalina y las Bordonas de Oro\, Chinoy y Yajaira.
+LOCATION:Plaza Sotomayor
+URL:https://chilecultura.gob.cl/events/34809/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-6f3011d3ffb59f884264b66d@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251101T213000Z
+DTEND:20251130T233000Z
+SUMMARY:El árbol desnudo en el Leon's books club
+DESCRIPTION:Situado en el invierno siguiente al estallido de la Guerra de Corea\, esta novela relata el conflicto entre el arte y la vida a través de un pintor que trabaja en el taller de retraros donde también trabaja nuestra protagonista.
+LOCATION:Librería Leon's Books
+URL:https://chilecultura.gob.cl/events/35256/
+X-JUBILAPP-PRICE:18000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-a8a08c5706aac572bb429260@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251206T230000Z
+DTEND:20251207T003000Z
+SUMMARY:Nicole Viña del Mar
+DESCRIPTION:La voz que marcó generaciones llega al Teatro Municipal de la Ciudad Jardín para compartir sus grandes éxitos con el público de la Quinta Región\, en un concierto que será íntimo e inolvidable.
+LOCATION:Teatro Municipal de Viña del Mar
+URL:https://chilecultura.gob.cl/events/34791/
+X-JUBILAPP-PRICE:10000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-d386ea8da7aafcd32c53a0bc@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250401T210000Z
+DTEND:20251231T230000Z
+SUMMARY:Experiencias Expandidas 2025: Programa de formación escénica
+DESCRIPTION:Buscamos compartir y crear conocimientos por medio de una práctica solidaria\, amorosa\, con rigor académico y artístico\, enmarcada en nociones sólidas en torno a lo escénico.
+LOCATION:Parque Cultural de Valparaíso
+URL:https://chilecultura.gob.cl/events/31960/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-2fb81fa65800ff9591697458@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T130000Z
+DTEND:20251231T220000Z
+SUMMARY:Acentto librería y café
+DESCRIPTION:Al servicio de la música y sus poéticas. Nuestra librería nació el año 2003 en Viña del Mar\, fundada por Rosario Severin Lea-Plaza compositora y música\, quien actualmente es la directora y gestora cultural del espacio Acentto. Inicialmente buscábamos poder acceder a partituras y libros técnicos muy difíciles de conseguir con lo cual nos fuimos especializando en el conocimiento y difusión del catálogo de cientos de editoriales de música de todo el mundo.
+LOCATION:Librería Acentto
+URL:https://chilecultura.gob.cl/events/31627/
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-09e68185ae65be6b03bc19d4@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250115T180000Z
+DTEND:20251231T200000Z
+SUMMARY:Taller de Literatura - Biblioverano
+DESCRIPTION:Biblioverano es una cartelera veraniega\, organizada por el Ministerio de las Culturas\, las Artes y el Patrimonio\, a través del Servicio Nacional del Patrimonio Cultural. Desde 2020\, conecta a personas de todas las edades con actividades gratuitas de fomento lector y extensión cultural en bibliotecas\, biblioplayas\, bibliopiscinas\, biblioplazas\, talleres\, clubes de lectura\, ferias del libro\, obras de teatro\, ciclos de cine y muchas alternativas más.
+LOCATION:Biblioteca Pública de Olmué
+URL:https://chilecultura.gob.cl/events/30887/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-9c34f2071a56bb2ea0f0c9cb@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART;VALUE=DATE:20250101
+DTEND;VALUE=DATE:20260101
+SUMMARY:Museo Organológico de Valparaíso
+DESCRIPTION:Es el único museo organológico de Chile\, y posee alrededor de 600 instrumentos musicales provenientes de diversas latitudes del mundo y forjados en diferentes épocas. Los instrumentos se encuentran divididos en 4 salas: membranófonos (tambores)\, idiófonos (triángulos\, maracas\, campanas\, sonajeros)\, aerófonos (quenas\, flautas) y cordófonos (violines\, guitarras).
+LOCATION:Museo Organológico de Valparaíso
+URL:https://chilecultura.gob.cl/events/475/
+X-JUBILAPP-PRICE:1000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-446c93c7fe3c0cac9c102e05@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T130000Z
+DTEND:20251231T210000Z
+SUMMARY:Museo Arqueológico de Los Andes
+DESCRIPTION:El Museo se inicia con las piezas obtenidas en un cementerio local que estaba siendo depredado y se toma contacto con arqueólogos académicos\, quienes apoyan el trabajo. A través de este museo se busca divulgar el conocimiento de la prehistoria chilena y preservar el patrimonio arqueológico e histórico de Chile.
+LOCATION:Museo Arqueológico de Los Andes
+URL:https://chilecultura.gob.cl/events/287/
+X-JUBILAPP-PRICE:1000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-4792aff97010df6e0d2f594c@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART;VALUE=DATE:20250101
+DTEND;VALUE=DATE:20260101
+SUMMARY:Festival Puerto de Ideas Valparaíso
+DESCRIPTION:Puerto Ideas es una gran fiesta cultural en el corazón de la ciudad de Valparaíso\, un escenario vibrante donde se cruzan la literatura\, el arte\, la ciencia y la filosofía.
+LOCATION:Valparaíso
+URL:https://chilecultura.gob.cl/events/34087/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-8991e4f9fd5572f0eeb2521d@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T130000Z
+DTEND:20251231T230000Z
+SUMMARY:La Pataleta Librería y micro editorial
+DESCRIPTION:La Pataleta es una librería y editorial enfocada en el público infanto juvenil\, conformada como cooperativa de trabajo\, asentada en Valparaíso desde el año 2017. La propuesta de nuestra cooperativa ha sido siempre fomentar la lectura desde la más temprana edad y para ello aspiramos a tener un catálogo de libros que abarquen todas las edades.
+LOCATION:Valparaíso
+URL:https://chilecultura.gob.cl/events/33674/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-45b8c942166ad51ecc9155b9@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T130000Z
+DTEND:20251231T213000Z
+SUMMARY:Museo de Arte Sacro y Costumbrista Buen Pastor
+DESCRIPTION:El Museo de Arte Sacro y Costumbrista se aloja en la primera casa fundada por la Congregación Nuestra Señora de la Caridad del Buen Pastor en América del Sur. Conserva objetos que narran el transcurso de cuatro siglos. Las piezas más antiguas datan del siglo VXIII y fueron legadas por el Beaterio de Nuestra Señora del Tránsito a las hermanas.
+LOCATION:Museo de Arte Sacro y Costumbrista Buen Pastor
+URL:https://chilecultura.gob.cl/events/474/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-44947c9e6a785f4fc9c2587c@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T130000Z
+DTEND:20251231T203000Z
+SUMMARY:Museo Histórico y Arqueológico de Concón
+DESCRIPTION:Actualmente el Museo Histórico y Arqueológico de Concón emplazado en la casa Villa Agustina del año 1828 y\, recién restaurado\, cobija importantes colecciones las cuales son el reflejo de la identidad de cada uno de nuestros vecinos. Concón\, por sus innumerables riquezas que ofrece su geografía\, fue asentamiento de diferentes comunidades y culturas indígenas\, tales como la Cultura Bato y la Cultura Aconcagua\, demostrado en las abundantes huellas arqueológicas encontradas principalmente en los entornos del Río Aconcagua.
+LOCATION:Museo Histórico y Arqueológico de Concón
+URL:https://chilecultura.gob.cl/events/266/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-075a42b69f697e1c208d3e26@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T150000Z
+DTEND:20251231T190000Z
+SUMMARY:Museo Institucional Universidad Técnica Federico Santa María
+DESCRIPTION:El Museo Institucional de la Universidad Técnica Federico Santa María surge el año 2000\, ocasión en que se nomina como presidente honorario al destacado profesor benemérito\, Sr. Carlos González de La Fuente. El objetivo de este museo es entregar a la comunidad universitaria un espacio destinado a preservar la memoria institucional recopilando elementos que pudieran resultar significativos para la identidad institucional\, acción que se mantiene intacta hasta el día de hoy.
+LOCATION:Museo Institucional Universidad Técnica Federico Santa María
+URL:https://chilecultura.gob.cl/events/297/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-c9d7a3582efd646c57a904b7@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T130000Z
+DTEND:20251231T233000Z
+SUMMARY:Librería Antártica - Valparaíso
+DESCRIPTION:Como empresa estamos comprometidos  con nuestros clientes en continuar acercando la lectura a más personas y seguir siendo una librería familiar y cálida\, pero a la vez actualizada y moderna\, donde puedas encontar lo que necesites de la forma más rápida y amigable posible\, gracias a la incorporación y uso de nuevas tecnologías.
+LOCATION:Librería Antártica Valparaíso
+URL:https://chilecultura.gob.cl/events/32223/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-c6f652a5887be482bc8eb574@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T130000Z
+DTEND:20251231T210000Z
+SUMMARY:Casa Museo Isla Negra
+DESCRIPTION:Por la potencia evocadora de los objetos que guarda y por su entorno dominado por la presencia del mar\, la casa de Isla Negra es una especie de compendio visual y material del imaginario poético de Pablo Neruda. Este lugar\, que se llamaba originalmente Las Gaviotas\, el poeta lo rebautizó como Isla Negra por el color de sus roqueríos y quizás porque ahí podía aislarse para escribir. Al regresar de Europa a Chile\, en 1937\, buscaba un lugar para dedicarse a su Canto General\, un gran libro sobre la historia y la naturaleza americana. La casa Isla Negra está inserta en el paisaje costero. Allí el mar con su oleaje\, rompientes\, playa y roqueríos\, reactualizaba la enorme impresión que el poeta tuvo cuando\, siendo niño\, se enfrentó por primera vez al océano\, en Puerto Saavedra. Luego el mar se convertiría en uno de los escenarios míticos de su poesía.
+LOCATION:Casa Museo Isla Negra
+URL:https://chilecultura.gob.cl/events/316/
+X-JUBILAPP-PRICE:7000
+X-JUBILAPP-FREE:no
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-cee14927b3985436c655f46a@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T120000Z
+DTEND:20251231T203000Z
+SUMMARY:Museo Arqueológico y Antropológico de Casablanca
+DESCRIPTION:El MAACas fue creado por decreto alcaldicio el 10 de octubre de 1992\, abriendo sus puertas en octubre de 1995. La instalación de un museo en la comuna nace de la necesidad\, por una parte\, de crear un espacio donde la comunidad se relacione con su identidad\, con su entorno natural y cultural y\, por otro\, de albergar los hallazgos arqueológicos provenientes de Quintay.
+LOCATION:Museo Arqueológico y Antropológico de Casablanca
+URL:https://chilecultura.gob.cl/events/339/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-4a8281b1f0bb4ab08216a8db@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T123000Z
+DTEND:20251231T220000Z
+SUMMARY:Librería Fuegia\, los libros del mundo
+DESCRIPTION:Libreria café arte especializada en libros usados\, Filosofia. Ciencias Sociales\, Esotéricos y novelas. Aquí encontrarás libros nuevos y usados. Visítanos en calle Blanco 998\, esquina Thompson. Un punto de encuentro y lectura en la ciudad de Quilpué.
+LOCATION:Librería Fuegia
+URL:https://chilecultura.gob.cl/events/34600/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-1efbb55e816743d9fefcc5cd@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART;VALUE=DATE:20250101
+DTEND;VALUE=DATE:20260101
+SUMMARY:Muevo Libros
+DESCRIPTION:Muevo Libros desde 2017 es sucesora de la Distribuidora de libros de Viña del Mar que se fundó en 1994. Su especialización son libros técnicos abarcando áreas de las Ciencias Sociales\, Humanistas\, Científicas e Ingeniería\, presente en las distintas ferias de libros\, exposiciones y plataformas estatales con atención personalizada.
+LOCATION:Muevo Libros
+URL:https://chilecultura.gob.cl/events/33681/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-9ccb01ae0f53d158382f2214@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20250101T133000Z
+DTEND:20251231T220000Z
+SUMMARY:Librería Ilustraverde
+DESCRIPTION:Librería Ilustraverde es un espacio donde podrás encontrar libros de naturaleza\, guías de campo de bolsillo y muchas publicaciones de editoriales independientes\, también contamos con un amplio catálogo de libros infantiles\, gráfica\, ilustraciones y más.
+LOCATION:Librería Ilustraverde
+URL:https://chilecultura.gob.cl/events/33679/
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-4d39e74cbac6959a83d517d1@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251102T130000Z
+DTEND:20251102T203000Z
+SUMMARY:Exposición Temporal | La otra historia
+DESCRIPTION:Exposición de la artista visual y ceramista Marién Leible\, busca representar y revalorar la presencia de la mujer mestiza en la historia latinoamericana. Para ello\, la artista ha creado siete grandes piezas de cerámica gres\, con alturas que varían entre 110 y 240 cm\, algo pocas veces visto en este tipo de arte. Son siete cuerpos femeninos monumentales de tres o cuatro caras\, que a su vez son vasijas contenedoras\, los que buscan reinterpretar la historia pasada\, presente y futura\, es decir\, contar esa otra historia de mujeres de nuestro continente que cuidan la vida con sabiduría\, tesón y ternura.
+LOCATION:Jardines Museo de Artes Decorativas Palacio Rioja
+URL:https://visitavina.munivina.cl/actividad/exposicion-temporal-la-otra-historia/?occurrence=2025-11-02
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:chilecultura-de636edd8dcd0b846d42506c@jubilapp
+DTSTAMP:20251031T022200Z
+DTSTART:20251102T130000Z
+DTEND:20251102T203000Z
+SUMMARY:Exposición | Perspectiva: Pinturas del planeta Tierra
+DESCRIPTION:La exposición invita a detenerse y a contemplar nuestro lugar en el universo a través de la pintura\, conjugando lo artístico y lo educativo en una experiencia inmersiva para reflexionar sobre el origen de la vida y el uso consciente de nuestro tiempo.
+LOCATION:Museo Palacio Vergara
+URL:https://visitavina.munivina.cl/actividad/exposicion-perspectiva-pinturas-del-planeta-tierra/?occurrence=2025-11-02
+X-JUBILAPP-FREE:sí
+STATUS:CONFIRMED
+END:VEVENT
+END:VCALENDAR

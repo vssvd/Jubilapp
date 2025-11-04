@@ -18,6 +18,7 @@ export type AtemporalActivity = {
   is_fallback?: boolean;
   category?: string | null;
   is_favorite?: boolean;
+  accessibility_labels?: string[] | null;
 };
 
 export type FetchAtemporalRecommendationsOptions = {

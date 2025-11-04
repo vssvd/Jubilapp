@@ -20,6 +20,7 @@ class AtemporalActivityOut(BaseModel):
     is_fallback: bool = False
     category: Optional[str] = None
     is_favorite: bool = False
+    accessibility_labels: Optional[List[str]] = None
 
 
 class AtemporalRecommendationsOut(BaseModel):

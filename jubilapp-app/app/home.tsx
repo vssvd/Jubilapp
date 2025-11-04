@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Pressable, ActivityIndicator, Alert, Linking } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Pressable, ActivityIndicator, Alert, Linking, Modal, TextInput, Keyboard, KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
@@ -17,10 +17,12 @@ import {
   ActivityHistoryEntry,
   createFavorite,
   deleteFavorite,
+  createActivityReport,
 } from "../src/api/activities";
 
 type Activity = {
   id: string;
+  activityType: string;
   domainId: number | null;
   title: string;
   emoji: string;
@@ -28,6 +30,7 @@ type Activity = {
   isFallback?: boolean;
   category?: string | null;
   tags?: string[] | null;
+  accessibilityLabels?: string[] | null;
   historyId?: string | null;
   pending?: boolean;
   favorite: boolean;
@@ -122,6 +125,9 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState<string | null>(null);
   const [items, setItems] = useState<Activity[]>([]);
+  const [reportingActivity, setReportingActivity] = useState<Activity | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportPending, setReportPending] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [notifs, setNotifs] = useState<Notif[]>([
     { id: "n1", text: "⏰ ¡Recuerda tu yoga suave a las 10:00!", time: "hoy 09:30", read: false },
@@ -243,6 +249,7 @@ export default function Home() {
           const favoriteKey = domainId !== null ? `atemporal-${domainId}` : key;
           return {
             id: key,
+            activityType: "atemporal",
             domainId,
             title: activity.title,
             emoji: activity.emoji || "🌟",
@@ -250,6 +257,7 @@ export default function Home() {
             isFallback: activity.is_fallback ?? false,
             category: activity.category ?? null,
             tags: activity.tags ?? null,
+            accessibilityLabels: activity.accessibility_labels ?? null,
             historyId: matched?.id ?? null,
             pending: false,
             favorite: Boolean(activity.is_favorite),
@@ -454,6 +462,53 @@ export default function Home() {
     }
   };
 
+  const startReport = useCallback((activity: Activity) => {
+    setReportPending(false);
+    setReportingActivity(activity);
+    setReportReason("");
+  }, []);
+
+  const closeReportModal = useCallback(() => {
+    if (reportPending) return;
+    Keyboard.dismiss();
+    setReportingActivity(null);
+    setReportReason("");
+  }, [reportPending]);
+
+  const submitReport = useCallback(async () => {
+    if (!reportingActivity || reportPending) return;
+    Keyboard.dismiss();
+    setReportPending(true);
+    const reasonText = reportReason.trim();
+    try {
+      await createActivityReport({
+        activityId: reportingActivity.id,
+        activityType: reportingActivity.activityType,
+        reason: reasonText.length ? reasonText : undefined,
+        title: reportingActivity.title,
+        emoji: reportingActivity.emoji,
+        category: reportingActivity.category ?? undefined,
+      });
+      setItems(prev => prev.filter(item => item.id !== reportingActivity.id));
+      Alert.alert("Rutina", "Listo, ajustaremos tus sugerencias.");
+      setReportingActivity(null);
+      setReportReason("");
+    } catch (error: any) {
+      console.error("createActivityReport failed", error);
+      if (error?.data) {
+        console.log("createActivityReport error payload", error.data);
+      }
+      const friendly =
+        (typeof error?.data?.detail === "string" && error.data.detail.trim()) ||
+        (error?.data?.detail?.message && String(error.data.detail.message).trim()) ||
+        (typeof error?.message === "string" && error.message.trim()) ||
+        "No pudimos registrar tu preferencia. Inténtalo nuevamente.";
+      Alert.alert("Rutina", friendly);
+    } finally {
+      setReportPending(false);
+    }
+  }, [reportingActivity, reportPending, reportReason]);
+
   const openEventLink = useCallback((url: string) => {
     if (!url) {
       Alert.alert("Eventos", "Este evento aún no tiene un enlace disponible.");
@@ -609,6 +664,15 @@ export default function Home() {
                 {!item.isFallback && item.category && (
                   <Text style={styles.categoryPill}>🎯 {item.category}</Text>
                 )}
+                {!item.isFallback && item.accessibilityLabels?.length ? (
+                  <View style={styles.accessibilityRow}>
+                    {item.accessibilityLabels.map((label, idx) => (
+                      <Text key={`${label}-${idx}`} style={styles.accessibilityBadge}>
+                        {label}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
                 {item.isFallback && (
                   <Text style={styles.fallbackText}>Agrega más intereses para recibir ideas nuevas.</Text>
                 )}
@@ -620,6 +684,16 @@ export default function Home() {
                     accessibilityLabel="Editar intereses"
                   >
                     <Text style={styles.fallbackButtonText}>Editar intereses</Text>
+                  </TouchableOpacity>
+                )}
+                {!item.isFallback && (
+                  <TouchableOpacity
+                    style={styles.dismissButton}
+                    onPress={() => startReport(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`No me interesa ${item.title}`}
+                  >
+                    <Text style={styles.dismissButtonText}>No me interesa</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -651,6 +725,73 @@ export default function Home() {
       )}
 
       <Text style={styles.progress}>Has completado {completed} de {items.length} actividades hoy 🎉</Text>
+
+      {reportingActivity && (
+        <Modal
+          visible
+          animationType="fade"
+          transparent
+          onRequestClose={closeReportModal}
+        >
+          <KeyboardAvoidingView
+            style={styles.reportOverlay}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={insets.top + 40}
+          >
+            <View style={styles.reportOverlayContent}>
+              <Pressable style={styles.reportDismissArea} onPress={Keyboard.dismiss} />
+              <Pressable style={styles.reportCard} onPress={() => {}}>
+                  <Text style={styles.reportTitle}>¿No te interesa esta actividad?</Text>
+                  <View style={styles.reportActivityChip}>
+                    <Text style={styles.reportActivityEmoji}>{reportingActivity.emoji}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.reportActivityTitle}>{reportingActivity.title}</Text>
+                      {reportingActivity.category && (
+                        <Text style={styles.reportActivityCategory}>{reportingActivity.category}</Text>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={styles.reportHint}>Comparte el motivo (opcional). Así afinamos mejor tus recomendaciones.</Text>
+                  <TextInput
+                    style={styles.reportInput}
+                    placeholder="Escribe el motivo aquí…"
+                    placeholderTextColor="#9CA3AF"
+                    value={reportReason}
+                    onChangeText={setReportReason}
+                    multiline
+                    maxLength={400}
+                    editable={!reportPending}
+                    returnKeyType="done"
+                    blurOnSubmit
+                    onSubmitEditing={Keyboard.dismiss}
+                  />
+                  <View style={styles.reportActions}>
+                    <TouchableOpacity
+                      onPress={closeReportModal}
+                      disabled={reportPending}
+                      style={styles.reportCancel}
+                    >
+                      <Text style={styles.reportCancelText}>Cancelar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={submitReport}
+                      disabled={reportPending}
+                      style={[styles.reportSubmit, reportPending && styles.reportSubmitDisabled]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Enviar motivo de reporte"
+                    >
+                      {reportPending ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.reportSubmitText}>No me interesa</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </Pressable>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      )}
 
       <BottomNav active="home" />
 
@@ -763,6 +904,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     fontSize: 13,
   },
+  accessibilityRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  accessibilityBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#E0F2FE",
+    color: "#0C4A6E",
+    fontFamily: "NunitoRegular",
+    fontSize: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  dismissButton: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    backgroundColor: "#FEE2E2",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  dismissButtonText: { color: "#B91C1C", fontFamily: "MontserratSemiBold", fontSize: 13 },
   favoriteButton: { alignSelf: "flex-start", paddingHorizontal: 6, paddingVertical: 4, borderRadius: 999 },
   favoriteButtonActive: {},
   favoriteButtonDisabled: { opacity: 0.5 },
@@ -790,6 +951,66 @@ const styles = StyleSheet.create({
   notifTime: { color: "#6B7280", fontFamily: "NunitoRegular", fontSize: 12 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#D1D5DB" },
   dotUnread: { backgroundColor: "#10B981" },
+  reportOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(17, 24, 39, 0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  reportOverlayContent: {
+    flex: 1,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reportDismissArea: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  reportCard: {
+    width: "94%",
+    maxWidth: 420,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    gap: 14,
+  },
+  reportTitle: { fontFamily: "MontserratSemiBold", fontSize: 18, color: theme.text },
+  reportHint: { fontFamily: "NunitoRegular", color: "#4B5563" },
+  reportInput: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 100,
+    fontFamily: "NunitoRegular",
+    fontSize: 15,
+    color: theme.text,
+    textAlignVertical: "top",
+  },
+  reportActions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 12, marginTop: 4 },
+  reportCancel: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: "#E5E7EB" },
+  reportCancelText: { fontFamily: "MontserratSemiBold", color: "#374151" },
+  reportSubmit: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: "#DC2626" },
+  reportSubmitDisabled: { opacity: 0.6 },
+  reportSubmitText: { fontFamily: "MontserratSemiBold", color: "#fff" },
+  reportActivityChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#F9FAFB",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  reportActivityEmoji: { fontSize: 28 },
+  reportActivityTitle: { fontFamily: "MontserratSemiBold", color: theme.text },
+  reportActivityCategory: { fontFamily: "NunitoRegular", color: "#6B7280", marginTop: 2 },
   loadingOverlay: {
     position: "absolute",
     top: 0,

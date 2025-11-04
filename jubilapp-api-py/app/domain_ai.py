@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Dict, List, Optional, Sequence, Tuple
+import unicodedata
 
 from app.domain_preparation import validate_level
+from app.domain_mobility import ALLOWED_MOBILITY_LEVELS, validate_mobility_level
 from app.services.huggingface import (
     HuggingFaceConfigError,
     HuggingFaceRequestError,
@@ -27,6 +29,54 @@ PREPARATION_REFERENCES: Dict[str, List[str]] = {
 }
 
 MIN_INTEREST_SCORE = 0.33
+MOBILITY_LEVELS = ALLOWED_MOBILITY_LEVELS
+MOBILITY_KEYWORDS: Dict[str, List[str]] = {
+    "baja": [
+        "movilidad baja",
+        "movilidad reducida",
+        "movilidad limitada",
+        "dificultad para moverme",
+        "me cuesta caminar",
+        "me canso rapido",
+        "uso baston",
+        "uso andador",
+        "necesito ayuda",
+        "dolor al caminar",
+        "salgo poco",
+        "poca movilidad",
+    ],
+    "media": [
+        "movilidad media",
+        "movilidad moderada",
+        "algo limitada",
+        "me canso un poco",
+        "distancias cortas",
+        "regular",
+    ],
+    "alta": [
+        "movilidad alta",
+        "movilidad buena",
+        "sin problemas para moverme",
+        "sin problema para moverme",
+        "camino bien",
+        "sin limitaciones",
+        "soy activo",
+        "soy activa",
+        "hago ejercicio",
+        "movilidad plena",
+    ],
+}
+MOBILITY_EXACT_MATCHES: Dict[str, str] = {
+    "baja": "baja",
+    "limitada": "baja",
+    "reducida": "baja",
+    "media": "media",
+    "moderada": "media",
+    "normal": "media",
+    "alta": "alta",
+    "buena": "alta",
+    "excelente": "alta",
+}
 
 
 def _dot(a: Sequence[float], b: Sequence[float]) -> float:
@@ -117,18 +167,59 @@ def _classify_preparation(answer: Optional[str]) -> Optional[str]:
     return validate_level(best_level)
 
 
+def _normalize_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    return "".join(ch for ch in normalized if not unicodedata.combining(ch)).lower().strip()
+
+
+def _classify_mobility(answer: Optional[str]) -> Optional[str]:
+    text = (answer or "").strip()
+    if not text:
+        return None
+
+    normalized = _normalize_text(text)
+    if not normalized:
+        return None
+
+    tokens = {word.strip() for word in normalized.split() if word.strip()}
+    for token in tokens:
+        mapped = MOBILITY_EXACT_MATCHES.get(token)
+        if mapped:
+            return validate_mobility_level(mapped)
+
+    for level in MOBILITY_LEVELS:
+        phrase = f"movilidad {level}"
+        if phrase in normalized:
+            return validate_mobility_level(level)
+
+    scores: Dict[str, int] = {level: 0 for level in MOBILITY_LEVELS}
+    for level, keywords in MOBILITY_KEYWORDS.items():
+        for keyword in keywords:
+            if keyword in normalized:
+                scores[level] += 2
+
+    best_level = max(scores, key=lambda key: scores[key])
+    if scores[best_level] > 0:
+        return validate_mobility_level(best_level)
+
+    return None
+
+
 def analyze_questionnaire(
     *,
     interest_answers: Sequence[str] | None,
     preparation_answer: Optional[str],
+    mobility_answer: Optional[str],
     top_k: int,
 ) -> Dict:
     try:
         interests = _interest_suggestions(interest_answers or [], top_k)
         preparation = _classify_preparation(preparation_answer)
+        mobility = _classify_mobility(mobility_answer)
     except (HuggingFaceConfigError, HuggingFaceRequestError):
         raise
     return {
         "interests": interests,
         "preparation_level": preparation,
+        "mobility_level": mobility,
     }

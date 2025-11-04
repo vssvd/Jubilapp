@@ -65,6 +65,27 @@ export type CreateFavoriteInput = {
   source?: Record<string, unknown> | null;
 };
 
+export type ActivityReport = {
+  id: string;
+  activityId: string;
+  activityType: string;
+  reason?: string | null;
+  title?: string | null;
+  emoji?: string | null;
+  category?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+};
+
+export type CreateActivityReportInput = {
+  activityId: string;
+  activityType: string;
+  reason?: string | null;
+  title?: string | null;
+  emoji?: string | null;
+  category?: string | null;
+};
+
 export type FetchUpcomingEventsOptions = {
   limit?: number;
   daysAhead?: number;
@@ -161,4 +182,29 @@ export async function deleteFavorite(favoriteId: string): Promise<void> {
   await request(`/api/activities/favorites/${encodeURIComponent(favoriteId)}`, {
     method: "DELETE",
   });
+}
+
+export async function createActivityReport(input: CreateActivityReportInput): Promise<ActivityReport> {
+  const payload = {
+    activityId: input.activityId,
+    activityType: input.activityType,
+    reason: input.reason ?? null,
+    title: input.title ?? null,
+    emoji: input.emoji ?? null,
+    category: input.category ?? null,
+  };
+  console.log("[api] createActivityReport payload", payload);
+  return request<ActivityReport>("/api/activities/reports", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchActivityReports(): Promise<ActivityReport[]> {
+  return request<ActivityReport[]>("/api/activities/reports");
+}
+
+export async function deleteActivityReport(activityType: string, activityId: string): Promise<void> {
+  const path = `/api/activities/reports/${encodeURIComponent(activityType)}/${encodeURIComponent(activityId)}`;
+  await request(path, { method: "DELETE" });
 }
