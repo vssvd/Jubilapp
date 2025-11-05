@@ -34,6 +34,7 @@ export type ActivityHistoryEntry = {
   updatedAt?: string | null;
   tags?: string[] | null;
   notes?: string | null;
+  rating?: number | null;
 };
 
 export type ActivityFavorite = {
@@ -156,6 +157,18 @@ export type CreateHistoryEntryInput = {
 
 export async function createHistoryEntry(payload: CreateHistoryEntryInput): Promise<ActivityHistoryEntry> {
   return request<ActivityHistoryEntry>("/api/activities/history", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export type SubmitHistoryFeedbackInput = {
+  rating: number;
+  comment?: string | null;
+};
+
+export async function submitHistoryFeedback(historyId: string, payload: SubmitHistoryFeedbackInput): Promise<ActivityHistoryEntry> {
+  return request<ActivityHistoryEntry>(`/api/activities/history/${historyId}/feedback`, {
     method: "POST",
     body: payload,
   });

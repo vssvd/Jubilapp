@@ -4,7 +4,7 @@ from app.firebase import db
 from app.security import get_current_uid
 from app.domain_activities import recommend_atemporales
 from app.services.user_interests import get_user_interest_names
-from app.services.activity_reports import reported_atemporal_ids
+from app.services.category_preferences import get_user_category_preferences
 from app.schemas_recommendations import (
     AtemporalRecommendationsOut,
     AtemporalActivityOut,
@@ -66,6 +66,7 @@ def get_atemporal_recommendations(
     interests = _user_interests(uid)
     level = _user_preparation_level(uid)
     mobility = _user_mobility_level(uid)
+    feedback = get_user_category_preferences(uid)
     rows = recommend_atemporales(
         interests,
         level,
@@ -73,7 +74,8 @@ def get_atemporal_recommendations(
         limit=limit,
         categories=categories,
         time_of_day=time_of_day,
-        reported_ids=reported_atemporal_ids(uid),
+        reported_ids=feedback.reported_atemporal_ids,
+        category_weights=feedback.weights,
     )
     favorite_tokens = _favorite_atemporal_tokens(uid)
     activities: List[AtemporalActivityOut] = []

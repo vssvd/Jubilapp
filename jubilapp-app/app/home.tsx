@@ -18,6 +18,7 @@ import {
   createFavorite,
   deleteFavorite,
   createActivityReport,
+  submitHistoryFeedback,
 } from "../src/api/activities";
 
 type Activity = {
@@ -36,6 +37,8 @@ type Activity = {
   favorite: boolean;
   favoritePending: boolean;
   favoriteKey: string;
+  feedbackRating?: number | null;
+  feedbackComment?: string | null;
 };
 type Notif = { id: string; text: string; time: string; read: boolean };
 
@@ -52,6 +55,7 @@ const SESSION_FILTERS: { categories: CategoryOptionKey[] } = {
 };
 
 const DEFAULT_EVENTS_RADIUS_KM = 20;
+const RATING_OPTIONS = [1, 2, 3, 4, 5] as const;
 
 function formatEventDateTime(value?: string | null): string | null {
   if (!value) return null;
@@ -125,6 +129,10 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState<string | null>(null);
   const [items, setItems] = useState<Activity[]>([]);
+  const [feedbackTarget, setFeedbackTarget] = useState<{ historyId: string; title: string; emoji?: string | null } | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackPending, setFeedbackPending] = useState(false);
   const [reportingActivity, setReportingActivity] = useState<Activity | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [reportPending, setReportPending] = useState(false);
@@ -263,6 +271,8 @@ export default function Home() {
             favorite: Boolean(activity.is_favorite),
             favoritePending: false,
             favoriteKey,
+            feedbackRating: matched?.rating ?? null,
+            feedbackComment: matched?.notes ?? null,
           };
         }),
       );
@@ -402,9 +412,46 @@ export default function Home() {
           completedAt: new Date().toISOString(),
           tags: current.tags ?? null,
         });
-        setItems(prev => prev.map(i => (i.id === id ? { ...i, historyId: entry.id, pending: false, done: true } : i)));
+        const rating = typeof entry.rating === "number" ? entry.rating : null;
+        const comment = entry.notes ?? null;
+        setItems(prev =>
+          prev.map(i =>
+            i.id === id
+              ? {
+                  ...i,
+                  historyId: entry.id,
+                  pending: false,
+                  done: true,
+                  feedbackRating: rating,
+                  feedbackComment: comment,
+                }
+              : i,
+          ),
+        );
+        if (rating === null) {
+          setFeedbackTarget({
+            historyId: entry.id,
+            title: current.title,
+            emoji: current.emoji || "🌟",
+          });
+          setFeedbackRating(null);
+          setFeedbackComment(comment ?? "");
+        }
       } catch {
-        setItems(prev => prev.map(i => (i.id === id ? { ...i, done: false, pending: false } : i)));
+        setItems(prev =>
+          prev.map(i =>
+            i.id === id
+              ? {
+                  ...i,
+                  historyId: current.historyId ?? null,
+                  done: current.done,
+                  pending: false,
+                  feedbackRating: current.feedbackRating ?? null,
+                  feedbackComment: current.feedbackComment ?? null,
+                }
+              : i,
+          ),
+        );
         Alert.alert("Historial", "No pudimos registrar la actividad. Inténtalo nuevamente.");
       }
     } else {
@@ -414,11 +461,78 @@ export default function Home() {
         if (historyId) {
           await deleteHistoryEntry(historyId);
         }
-        setItems(prev => prev.map(i => (i.id === id ? { ...i, historyId: null, pending: false, done: false } : i)));
+        setItems(prev =>
+          prev.map(i =>
+            i.id === id
+              ? {
+                  ...i,
+                  historyId: null,
+                  pending: false,
+                  done: false,
+                  feedbackRating: null,
+                  feedbackComment: null,
+                }
+              : i,
+          ),
+        );
       } catch {
-        setItems(prev => prev.map(i => (i.id === id ? { ...i, done: true, pending: false } : i)));
+        setItems(prev =>
+          prev.map(i =>
+            i.id === id
+              ? {
+                  ...i,
+                  done: true,
+                  pending: false,
+                  historyId,
+                  feedbackRating: current.feedbackRating ?? null,
+                  feedbackComment: current.feedbackComment ?? null,
+                }
+              : i,
+          ),
+        );
         Alert.alert("Historial", "No pudimos actualizar el historial. Inténtalo nuevamente.");
       }
+    }
+  };
+
+  const closeFeedbackModal = () => {
+    if (feedbackPending) return;
+    setFeedbackTarget(null);
+    setFeedbackRating(null);
+    setFeedbackComment("");
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackTarget) return;
+    if (feedbackRating === null) {
+      Alert.alert("Feedback", "Selecciona una puntuación entre 1 y 5.");
+      return;
+    }
+    setFeedbackPending(true);
+    const trimmedComment = feedbackComment.trim();
+    try {
+      const updated = await submitHistoryFeedback(feedbackTarget.historyId, {
+        rating: feedbackRating,
+        comment: trimmedComment ? trimmedComment : null,
+      });
+      setItems(prev =>
+        prev.map(item =>
+          item.historyId === updated.id
+            ? {
+                ...item,
+                feedbackRating: typeof updated.rating === "number" ? updated.rating : feedbackRating,
+                feedbackComment: updated.notes ?? (trimmedComment ? trimmedComment : null),
+              }
+            : item,
+        ),
+      );
+      setFeedbackTarget(null);
+      setFeedbackRating(null);
+      setFeedbackComment("");
+    } catch {
+      Alert.alert("Feedback", "No pudimos guardar tu feedback. Inténtalo nuevamente.");
+    } finally {
+      setFeedbackPending(false);
     }
   };
 
@@ -726,6 +840,103 @@ export default function Home() {
 
       <Text style={styles.progress}>Has completado {completed} de {items.length} actividades hoy 🎉</Text>
 
+      {feedbackTarget && (
+        <Modal
+          visible
+          animationType="fade"
+          transparent
+          onRequestClose={closeFeedbackModal}
+        >
+          <KeyboardAvoidingView
+            style={styles.feedbackOverlay}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={insets.top + 40}
+          >
+            <View style={styles.feedbackOverlayContent}>
+              <Pressable
+                style={styles.feedbackDismissArea}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  closeFeedbackModal();
+                }}
+              />
+              <Pressable style={styles.feedbackCard} onPress={() => {}}>
+                <Text style={styles.feedbackTitle}>¿Cómo te fue con esta actividad?</Text>
+                <View style={styles.feedbackActivityChip}>
+                  <Text style={styles.feedbackActivityEmoji}>{feedbackTarget.emoji || "🌟"}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.feedbackActivityTitle}>{feedbackTarget.title}</Text>
+                  </View>
+                </View>
+                <Text style={styles.feedbackHint}>Califica de 1 a 5 estrellas y deja un comentario si quieres.</Text>
+                <View style={styles.feedbackStarsRow}>
+                  {RATING_OPTIONS.map(value => {
+                    const active = feedbackRating !== null && value <= feedbackRating;
+                    return (
+                      <TouchableOpacity
+                        key={value}
+                        onPress={() => {
+                          if (feedbackPending) return;
+                          setFeedbackRating(value);
+                        }}
+                        style={[styles.feedbackStarButton, active && styles.feedbackStarButtonActive]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: feedbackRating === value }}
+                        accessibilityLabel={`Calificar con ${value} estrella${value === 1 ? "" : "s"}`}
+                        disabled={feedbackPending}
+                      >
+                        <Text style={[styles.feedbackStar, active && styles.feedbackStarActive]}>
+                          {active ? "★" : "☆"}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <TextInput
+                  style={styles.feedbackInput}
+                  placeholder="Comentario opcional…"
+                  placeholderTextColor="#9CA3AF"
+                  value={feedbackComment}
+                  onChangeText={setFeedbackComment}
+                  editable={!feedbackPending}
+                  multiline
+                  maxLength={400}
+                  returnKeyType="done"
+                  blurOnSubmit
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+                <View style={styles.feedbackActions}>
+                  <TouchableOpacity
+                    onPress={closeFeedbackModal}
+                    disabled={feedbackPending}
+                    style={styles.feedbackSkip}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.feedbackSkipText}>Más tarde</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSubmitFeedback}
+                    disabled={feedbackPending || feedbackRating === null}
+                    style={[
+                      styles.feedbackSubmit,
+                      (feedbackPending || feedbackRating === null) && styles.feedbackSubmitDisabled,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Enviar feedback"
+                  >
+                    {feedbackPending ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.feedbackSubmitText}>Enviar</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      )}
+
       {reportingActivity && (
         <Modal
           visible
@@ -939,6 +1150,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   fallbackButtonText: { color: "#fff", fontFamily: "MontserratSemiBold", fontSize: 14 },
+  markAll: { color: theme.primary, fontFamily: "MontserratSemiBold", fontSize: 14 },
   emptyState: { textAlign: "center", color: "#4B5563", fontFamily: "NunitoRegular", paddingVertical: 40, paddingHorizontal: 16 },
   progress: { textAlign: "center", marginTop: 8, marginBottom: 6, color: "#065f46", fontFamily: "NunitoRegular" },
   overlay: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.15)", justifyContent: "flex-start", alignItems: "center" },
@@ -1011,6 +1223,68 @@ const styles = StyleSheet.create({
   reportActivityEmoji: { fontSize: 28 },
   reportActivityTitle: { fontFamily: "MontserratSemiBold", color: theme.text },
   reportActivityCategory: { fontFamily: "NunitoRegular", color: "#6B7280", marginTop: 2 },
+  feedbackOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(17, 24, 39, 0.55)",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  },
+  feedbackOverlayContent: { flex: 1, justifyContent: "center" },
+  feedbackDismissArea: { flex: 1 },
+  feedbackCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+    gap: 14,
+  },
+  feedbackTitle: { fontFamily: "MontserratSemiBold", fontSize: 18, color: theme.text },
+  feedbackActivityChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#F9FAFB",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  feedbackActivityEmoji: { fontSize: 32 },
+  feedbackActivityTitle: { fontFamily: "MontserratSemiBold", color: theme.text },
+  feedbackHint: { fontFamily: "NunitoRegular", color: "#4B5563" },
+  feedbackStarsRow: { flexDirection: "row", justifyContent: "center", gap: 12 },
+  feedbackStarButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  feedbackStarButtonActive: { borderColor: "#F59E0B", backgroundColor: "#FEF3C7" },
+  feedbackStar: { fontSize: 26, color: "#9CA3AF" },
+  feedbackStarActive: { color: "#D97706" },
+  feedbackInput: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 90,
+    fontFamily: "NunitoRegular",
+    fontSize: 15,
+    color: theme.text,
+    textAlignVertical: "top",
+  },
+  feedbackActions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 12 },
+  feedbackSkip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: "#E5E7EB" },
+  feedbackSkipText: { fontFamily: "MontserratSemiBold", color: "#374151" },
+  feedbackSubmit: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: theme.primary },
+  feedbackSubmitDisabled: { opacity: 0.6 },
+  feedbackSubmitText: { fontFamily: "MontserratSemiBold", color: "#fff" },
   loadingOverlay: {
     position: "absolute",
     top: 0,

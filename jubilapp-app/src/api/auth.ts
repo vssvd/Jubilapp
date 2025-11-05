@@ -3,7 +3,7 @@ import { auth } from "../firebaseConfig";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 export interface RegisterPayload {
-  full_name: string;
+  full_name?: string;
   email: string;
   password: string;
 }
@@ -16,12 +16,19 @@ export interface LoginPayload {
 export interface RegisterResponse {
   uid: string;
   email: string;
-  full_name: string;
+  full_name: string | null;
   token: string;
 }
 
 export interface LoginUserResponse {
   access_token: string;
+}
+
+export interface Me {
+  uid: string;
+  email?: string | null;
+  email_verified?: boolean;
+  provider?: string | null;
 }
 
 export async function registerUser(payload: RegisterPayload) {
@@ -34,6 +41,10 @@ export async function registerUser(payload: RegisterPayload) {
 export async function loginWithPassword(email: string, password: string) {
   const cred = await signInWithEmailAndPassword(auth, email, password);
   return cred.user;
+}
+
+export async function me(): Promise<Me> {
+  return request<Me>("/api/me");
 }
 
 export async function logout(): Promise<void> {

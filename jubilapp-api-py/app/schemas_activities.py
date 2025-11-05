@@ -232,6 +232,12 @@ class ActivityHistoryBase(BaseModel):
     )
     tags: Optional[List[str]] = Field(default=None)
     notes: Optional[str] = Field(default=None, max_length=500)
+    rating: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=5,
+        validation_alias=AliasChoices("rating", "feedbackRating", "feedback_rating"),
+    )
 
     @field_validator("title", mode="before")
     @classmethod
@@ -302,6 +308,31 @@ class ActivityHistoryOut(ActivityHistoryBase):
 
     model_config = {
         "from_attributes": True,
+        "populate_by_name": True,
+    }
+
+
+class ActivityFeedbackCreate(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        validation_alias=AliasChoices("comment", "feedbackComment", "feedback_comment", "notes"),
+        serialization_alias="comment",
+    )
+
+    @field_validator("comment", mode="before")
+    @classmethod
+    def _trim_comment(cls, value: object) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        return str(value)
+
+    model_config = {
+        "extra": "forbid",
         "populate_by_name": True,
     }
 

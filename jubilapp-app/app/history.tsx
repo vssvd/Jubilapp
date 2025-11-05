@@ -95,6 +95,11 @@ function normalizeOrigin(value?: string | null): string {
     .join(" ");
 }
 
+function formatRatingStars(value: number): string {
+  const rating = Math.max(0, Math.min(5, Math.round(value)));
+  return Array.from({ length: 5 }, (_, index) => (index < rating ? "★" : "☆")).join("");
+}
+
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const [selectedRange, setSelectedRange] = useState<HistoryRange>("30d");
@@ -377,6 +382,13 @@ export default function HistoryScreen() {
                         </Text>
                         {origin ? <Text style={styles.itemOrigin}>{origin}</Text> : null}
                       </View>
+                      {typeof item.rating === "number" && item.rating >= 1 ? (
+                        <View style={styles.itemRatingRow}>
+                          <Text style={styles.itemRatingStars}>{formatRatingStars(item.rating)}</Text>
+                          <Text style={styles.itemRatingScore}>{item.rating}/5</Text>
+                        </View>
+                      ) : null}
+                      {item.notes ? <Text style={styles.itemNotes}>{item.notes}</Text> : null}
                     </View>
                   </View>
                 );
@@ -579,6 +591,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   itemOrigin: { fontFamily: "NunitoRegular", color: "#047857", fontSize: 13 },
+  itemRatingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+  itemRatingStars: { fontFamily: "NunitoRegular", color: "#F59E0B", fontSize: 16, letterSpacing: 2 },
+  itemRatingScore: { fontFamily: "NunitoRegular", color: "#92400E", fontSize: 14 },
+  itemNotes: { marginTop: 8, fontFamily: "NunitoRegular", color: "#374151", lineHeight: 20 },
   listEmptyContainer: { paddingTop: 60, paddingBottom: 140, alignItems: "center" },
   emptyText: { fontFamily: "NunitoRegular", color: "#6B7280", textAlign: "center", paddingHorizontal: 12 },
   hiddenCard: {

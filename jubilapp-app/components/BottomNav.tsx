@@ -1,18 +1,25 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { theme } from "../src/lib/theme";
 
 type TabKey = "home" | "favorites" | "history" | "profile";
 
+const TAB_ROUTES = {
+  home: "/home",
+  favorites: "/favorites",
+  history: "/history",
+  profile: "/profile",
+} satisfies Record<TabKey, Href>;
+
 export default function BottomNav({ active }: { active: TabKey }) {
   const router = useRouter();
-  const btn = (key: TabKey, label: string, emoji: string, path: string) => (
+  const btn = (key: TabKey, label: string, emoji: string) => (
     <TouchableOpacity
       key={key}
       onPress={() => {
         if (active !== key) {
-          router.navigate(path);
+          router.navigate(TAB_ROUTES[key]);
         }
       }}
       style={styles.item}
@@ -25,10 +32,10 @@ export default function BottomNav({ active }: { active: TabKey }) {
   );
   return (
     <View style={styles.bar}>
-      {btn("home", "Inicio", "🏠", "/home")}
-      {btn("favorites", "Favoritos", "⭐", "/favorites")}
-      {btn("history", "Historial", "📘", "/history")}
-      {btn("profile", "Perfil", "👤", "/profile")}
+      {btn("home", "Inicio", "🏠")}
+      {btn("favorites", "Favoritos", "⭐")}
+      {btn("history", "Historial", "📘")}
+      {btn("profile", "Perfil", "👤")}
     </View>
   );
 }

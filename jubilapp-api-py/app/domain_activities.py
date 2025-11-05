@@ -200,6 +200,7 @@ def recommend_atemporales(
     categories: Optional[Iterable[str]] = None,
     time_of_day: Optional[str] = None,
     reported_ids: Optional[Iterable[int]] = None,
+    category_weights: Optional[Dict[str, float]] = None,
 ) -> List[Dict]:
     names = {n.strip() for n in user_interests if n and n.strip()}
     allowed_categories = None
@@ -251,6 +252,13 @@ def recommend_atemporales(
         score += 1 if a.get("cost") == "gratis" else 0
         score += _time_weight(time_of_day, a.get("time_of_day", "cualquiera"))
         score += _mobility_weight(mobility_level, a)
+
+        if category_weights:
+            normalized_category = _normalize_category_token(category_name)
+            if normalized_category:
+                weight_adjustment = category_weights.get(normalized_category)
+                if weight_adjustment:
+                    score += weight_adjustment
 
         # Preferencia suave por indoor cuando el nivel es desorientado
         if preparation_level == "desorientado" and a.get("indoor"):

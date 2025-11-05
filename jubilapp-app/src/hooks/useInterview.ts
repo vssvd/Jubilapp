@@ -98,6 +98,7 @@ export function useInterview() {
         outputFormat: Audio.IOSOutputFormat.LINEARPCM,
         audioQuality: Audio.IOSAudioQuality.MAX,
         bitRateStrategy: Audio.IOSBitRateStrategy.CONSTANT,
+        bitRate: 128000,
         sampleRate: IOS_SAMPLE_RATE,
         numberOfChannels: 1,
         linearPCMBitDepth: 16,

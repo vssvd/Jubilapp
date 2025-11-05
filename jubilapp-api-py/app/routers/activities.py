@@ -15,6 +15,7 @@ from app.schemas_activities import (
     ActivityCreate,
     ActivityHistoryCreate,
     ActivityHistoryOut,
+    ActivityFeedbackCreate,
     ActivityOut,
     ActivityUpdate,
     ActivityFavoriteCreate,
@@ -87,6 +88,23 @@ def _to_float(value: Optional[object]) -> Optional[float]:
         return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return None
+
+
+def _to_rating(value: Optional[object]) -> Optional[int]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        numeric = int(value)
+    else:
+        try:
+            numeric = int(str(value))
+        except (TypeError, ValueError):
+            return None
+    if 1 <= numeric <= 5:
+        return numeric
+    return None
 
 
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -174,6 +192,9 @@ def _snapshot_to_history(snapshot) -> ActivityHistoryOut:
     completed_at = _to_datetime(data.get("completedAt") or data.get("completed_at"))
     created_at = _to_datetime(data.get("createdAt") or data.get("created_at")) or datetime.now(timezone.utc)
     updated_at = _to_datetime(data.get("updatedAt") or data.get("updated_at"))
+    comment = data.get("notes")
+    if not comment:
+        comment = data.get("feedbackComment") or data.get("feedback_comment")
 
     payload = {
         "id": snapshot.id,
@@ -188,7 +209,12 @@ def _snapshot_to_history(snapshot) -> ActivityHistoryOut:
         "created_at": created_at,
         "updated_at": updated_at,
         "tags": _normalize_tags(data.get("tags")),
-        "notes": data.get("notes"),
+        "notes": comment,
+        "rating": _to_rating(
+            data.get("rating")
+            or data.get("feedbackRating")
+            or data.get("feedback_rating")
+        ),
     }
 
     return ActivityHistoryOut.model_validate(payload)
@@ -333,6 +359,10 @@ def create_history_entry(
     doc_ref = collection.document()
 
     data = payload.model_dump(by_alias=True, exclude_none=True)
+    comment = data.get("notes")
+    if comment:
+        data["feedbackComment"] = comment
+
     if "completedAt" not in data:
         data["completedAt"] = firestore.SERVER_TIMESTAMP
 
@@ -345,6 +375,37 @@ def create_history_entry(
     snapshot = doc_ref.get()
     if not snapshot.exists:
         raise HTTPException(status_code=500, detail="No se pudo guardar el historial")
+    return _snapshot_to_history(snapshot)
+
+
+@router.post("/history/{history_id}/feedback", response_model=ActivityHistoryOut)
+def submit_history_feedback(
+    history_id: str,
+    payload: ActivityFeedbackCreate,
+    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+):
+    doc_ref = _history_collection(uid).document(history_id)
+    snapshot = doc_ref.get()
+    if not snapshot.exists:
+        raise HTTPException(status_code=404, detail="Registro de historial no encontrado")
+
+    data = payload.model_dump(by_alias=True, exclude_none=False)
+    updates = {
+        "rating": data["rating"],
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+
+    if "comment" in data:
+        comment = data["comment"]
+        if comment is None:
+            updates["notes"] = firestore.DELETE_FIELD
+            updates["feedbackComment"] = firestore.DELETE_FIELD
+        else:
+            updates["notes"] = comment
+            updates["feedbackComment"] = comment
+
+    doc_ref.set(updates, merge=True)
+    snapshot = doc_ref.get()
     return _snapshot_to_history(snapshot)
 
 
