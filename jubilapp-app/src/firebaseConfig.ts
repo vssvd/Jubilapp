@@ -1,6 +1,5 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getAuth, Auth, initializeAuth } from "firebase/auth";
-import { getReactNativePersistence } from "firebase/auth/react-native";
+import { getAuth, Auth, initializeAuth, type Persistence } from "firebase/auth";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -39,12 +38,24 @@ try {
 
 // Inicializa Auth con persistencia nativa en RN y estándar en Web
 let auth: Auth;
+let getReactNativePersistence: ((storage: typeof AsyncStorage) => Persistence) | undefined;
+if (Platform.OS !== "web") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const rnAuth = require("firebase/auth/react-native");
+    if (typeof rnAuth?.getReactNativePersistence === "function") {
+      getReactNativePersistence = rnAuth.getReactNativePersistence;
+    }
+  } catch {
+    getReactNativePersistence = undefined;
+  }
+}
 if (Platform.OS === "web") {
   auth = getAuth(app);
 } else {
   try {
     auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
+      ...(getReactNativePersistence ? { persistence: getReactNativePersistence(AsyncStorage) } : {}),
     });
   } catch {
     auth = getAuth(app);

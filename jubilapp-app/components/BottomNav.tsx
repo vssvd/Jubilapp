@@ -5,12 +5,12 @@ import { theme } from "../src/lib/theme";
 
 type TabKey = "home" | "favorites" | "history" | "profile";
 
-const TAB_ROUTES = {
+const TAB_ROUTES: Record<TabKey, Href> = {
   home: "/home",
   favorites: "/favorites",
   history: "/history",
   profile: "/profile",
-} satisfies Record<TabKey, Href>;
+};
 
 export default function BottomNav({ active }: { active: TabKey }) {
   const router = useRouter();

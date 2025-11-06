@@ -33,7 +33,12 @@ export default function RegisterScreen() {
   const onSubmit = async (values: FormData) => {
     try {
       // 1) registra en tu FastAPI (crea user en Firebase + Firestore)
-      await registerUser(values);
+      const payload = {
+        email: values.email,
+        password: values.password,
+        ...(values.full_name?.trim() ? { full_name: values.full_name.trim() } : {}),
+      };
+      await registerUser(payload);
       // 2) login directo con Firebase Auth
       await loginWithPassword(values.email, values.password);
 
