@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Alert, ScrollView } from "react-native";
+import { Text, StyleSheet, Alert, ScrollView } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";

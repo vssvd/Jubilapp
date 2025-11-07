@@ -74,7 +74,7 @@ export default function Register() {
       setLoading(true);
 
       // 1. Crear usuario en el backend (FastAPI + Firebase Admin)
-      const res = await registerUser({
+      await registerUser({
         full_name: name.trim(),
         email: email.trim(),
         password,

@@ -37,14 +37,14 @@ export default function RootLayout() {
           <Stack.Screen name="home" options={{ title: "🎉 Bienvenida", headerShown: false }} />
           <Stack.Screen name="favorites" options={{ title: "⭐ Favoritos", headerShown: false }} />
           <Stack.Screen name="history" options={{ title: "📘 Historial", headerShown: false }} />
-          <Stack.Screen name="interests" options={{ title: "📝 Intereses", headerShown: false }} />
-          <Stack.Screen name="interests/index" options={{ title: "Elige cómo continuar" }} />
+          <Stack.Screen name="interests/index" options={{ title: "📝 Intereses", headerShown: false }} />
           <Stack.Screen name="interests/assistant" options={{ title: "Entrevista asistida" }} />
           <Stack.Screen name="interests/manual" options={{ title: "Cuestionario manual" }} />
           <Stack.Screen name="profile" options={{ title: "👤 Perfil" }} />
           <Stack.Screen name="preparation" options={{ title: "🎯 Preparación", headerShown: false }} />
           <Stack.Screen name="location" options={{ title: "📍 Ubicación", headerShown: false }} />
           <Stack.Screen name="tutorial" options={{ title: "Tutorial", headerShown: false }} />
+          <Stack.Screen name="admin/index" options={{ title: "👑 Panel admin" }} />
           <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
         </Stack>
         <StatusBar style="dark" />

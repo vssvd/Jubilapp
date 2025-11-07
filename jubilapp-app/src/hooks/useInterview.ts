@@ -197,7 +197,7 @@ export function useInterview() {
       setError(err?.message ?? "No se pudo iniciar la grabación.");
       setStatus("idle");
     }
-  }, [permissionGranted, status]);
+  }, [permissionGranted, status, resolveRecordingOptions]);
 
   const resetCurrentResponse = useCallback(() => {
     if (!currentQuestion) return;

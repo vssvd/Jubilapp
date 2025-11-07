@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
 
 class RegisterIn(BaseModel):
@@ -9,3 +10,19 @@ class UserOut(BaseModel):
     uid: str
     email: EmailStr
     full_name: str | None = None
+
+class AdminUserOut(BaseModel):
+    uid: str
+    email: EmailStr
+    full_name: str | None = None
+    created_at: datetime
+    last_activity_at: datetime | None = None
+    status: str
+
+class AdminUserList(BaseModel):
+    total: int
+    items: list[AdminUserOut]
+
+
+class AdminStatusOut(BaseModel):
+    is_admin: bool

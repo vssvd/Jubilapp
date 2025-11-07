@@ -23,7 +23,7 @@ export default function Index() {
       try { router.replace("/home"); } finally { setChecking(false); }
     });
     return () => unsub();
-  }, []);
+  }, [router]);
 
   if (checking) {
     return (

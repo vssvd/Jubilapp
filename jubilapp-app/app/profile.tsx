@@ -7,20 +7,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { logout } from "../src/api/auth";
 import { fetchPreparation, savePreparation, type PreparationLevel, type MobilityLevel } from "../src/api/preparation";
 import * as Location from "expo-location";
+import { fetchAdminStatus } from "../src/api/admin";
 
-const PREPARATION_OPTIONS: Array<{ key: PreparationLevel; title: string; description: string }> = [
+const PREPARATION_OPTIONS: { key: PreparationLevel; title: string; description: string }[] = [
   { key: "planificado", title: "Planificado", description: "Tengo metas y actividades definidas." },
   { key: "intermedio", title: "Intermedio", description: "Tengo ideas, pero no completamente organizadas." },
   { key: "desorientado", title: "Desorientado", description: "No sé por dónde empezar." },
 ];
 
-const MOBILITY_OPTIONS: Array<{ key: MobilityLevel; title: string; description: string }> = [
+const MOBILITY_OPTIONS: { key: MobilityLevel; title: string; description: string }[] = [
   { key: "baja", title: "Movilidad baja", description: "Prefiero actividades suaves o con poco desplazamiento." },
   { key: "media", title: "Movilidad media", description: "Puedo moverme con pausas o distancias cortas." },
   { key: "alta", title: "Movilidad alta", description: "No tengo limitaciones para desplazarme." },
 ];
 
-const AVATAR_SETS: Array<{ title: string; options: string[] }> = [
+const AVATAR_SETS: { title: string; options: string[] }[] = [
   {
     title: "Personas",
     options: ["👤", "👩", "👨", "👴", "👵", "👥"],
@@ -64,6 +65,8 @@ export default function ProfileScreen() {
   const [showPrepPicker, setShowPrepPicker] = useState(false);
   const [showMobilityPicker, setShowMobilityPicker] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminChecked, setAdminChecked] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -87,6 +90,29 @@ export default function ProfileScreen() {
         setLoading(false);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const status = await fetchAdminStatus();
+        if (active) {
+          setIsAdmin(status.is_admin);
+        }
+      } catch {
+        if (active) {
+          setIsAdmin(false);
+        }
+      } finally {
+        if (active) {
+          setAdminChecked(true);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const performLogout = useCallback(async () => {
@@ -365,6 +391,20 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push("/interests")}>
             <Text style={styles.secondaryText}>Editar intereses</Text>
           </TouchableOpacity>
+
+          {adminChecked && isAdmin ? (
+            <TouchableOpacity
+              style={styles.adminCard}
+              onPress={() => router.push("/admin")}
+              accessibilityRole="button"
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.adminCardTitle}>Panel administrador</Text>
+                <Text style={styles.adminCardSubtitle}>Consulta la lista de usuarios registrados y sus estados.</Text>
+              </View>
+              <Text style={{ fontSize: 32 }}>👑</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -524,6 +564,19 @@ const styles = StyleSheet.create({
   saveText: { color: "#fff", fontWeight: "800" },
   secondaryBtn: { paddingVertical: 12, alignItems: "center", marginTop: 12 },
   secondaryText: { color: theme.primary, fontWeight: "700" },
+  adminCard: {
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  adminCardTitle: { fontSize: 16, fontWeight: "800", color: theme.text },
+  adminCardSubtitle: { color: theme.muted, marginTop: 4 },
   avatarSectionTitle: { color: theme.text, fontWeight: "600", marginBottom: 6 },
   avatarGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   avatarChoice: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: theme.border },

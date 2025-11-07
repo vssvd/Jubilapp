@@ -1,5 +1,6 @@
 import os
 import secrets
+from functools import lru_cache
 
 from passlib.context import CryptContext
 from fastapi import Header, HTTPException, status, Depends
@@ -69,3 +70,42 @@ def get_current_uid_or_task(authorization: str = Header(None)) -> str:
         if token and secrets.compare_digest(token, expected):
             return "scheduler-task"
     return get_current_uid(authorization)
+
+
+@lru_cache(maxsize=1)
+def _admin_email_set() -> set[str]:
+    raw = os.getenv("ADMIN_EMAILS") or ""
+    return {item.strip().lower() for item in raw.split(",") if item.strip()}
+
+
+def is_admin_user(decoded: dict | None) -> bool:
+    """
+    Determina si el token decodificado pertenece a un administrador.
+    Considera el claim 'admin' o la lista ADMIN_EMAILS en el backend.
+    """
+    if not decoded:
+        return False
+
+    if decoded.get("admin") is True:
+        return True
+
+    custom_claims = decoded.get("claims") or decoded.get("custom_claims") or {}
+    if custom_claims.get("admin"):
+        return True
+
+    email = (decoded.get("email") or "").strip().lower()
+    return bool(email and email in _admin_email_set())
+
+
+def require_admin(decoded: dict = Depends(verify_firebase_token)) -> dict:
+    """
+    Verifica que el usuario autenticado tenga privilegios de administrador.
+    Se acepta el claim 'admin' en el token o que su correo esté listado en ADMIN_EMAILS.
+    """
+    if is_admin_user(decoded):
+        return decoded
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Solo administradores pueden acceder a este recurso.",
+    )

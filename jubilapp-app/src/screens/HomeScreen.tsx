@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { me, logout, type Me } from "../api/auth";
 import BigButton from "../components/BigButton";
@@ -8,19 +8,19 @@ export default function HomeScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Me | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const data = await me();       // ← usa la API correcta
       setProfile(data);
-    } catch (e: any) {
+    } catch {
       Alert.alert("Sesión", "Vuelve a iniciar sesión.");
       navigation.replace("Login");
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigation]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   if (loading) {
     return (

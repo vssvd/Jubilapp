@@ -641,8 +641,17 @@ export default function Home() {
     }
   };
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 108 }]}>
+  const activityData = loadingActivities ? [] : items;
+  const listContentStyle = useMemo(
+    () => ({
+      paddingTop: insets.top + 12,
+      paddingBottom: insets.bottom + 140,
+    }),
+    [insets.bottom, insets.top],
+  );
+
+  const listHeaderComponent = (
+    <View>
       <View style={styles.header}>
         <Text style={styles.appName}>JubilApp</Text>
         <View style={{ flexDirection: "row", gap: 12 }}>
@@ -740,105 +749,120 @@ export default function Home() {
         )}
       </View>
 
-      {loadingActivities ? (
+      {loadingActivities && (
         <View style={styles.listLoading}>
           <ActivityIndicator color={theme.primary} size="large" />
           <Text style={styles.loadingText}>Preparando tus recomendaciones…</Text>
         </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(i) => i.id}
-          contentContainerStyle={{ paddingVertical: 12, paddingHorizontal: 4 }}
-          ListEmptyComponent={(
+      )}
+
+      <View style={{ height: 8 }} />
+    </View>
+  );
+
+  const listFooterComponent = loadingActivities ? (
+    <View style={{ height: 12 }} />
+  ) : (
+    <Text style={styles.progress}>Has completado {completed} de {items.length} actividades hoy 🎉</Text>
+  );
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={activityData}
+        keyExtractor={(i) => i.id}
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.listContent, listContentStyle]}
+        ListHeaderComponent={listHeaderComponent}
+        ListFooterComponent={listFooterComponent}
+        ListEmptyComponent={
+          !loadingActivities ? (
             <Text style={styles.emptyState}>
               {hasCategoryFilter
                 ? "No encontramos actividades para las categorías seleccionadas. Ajusta el filtro o inténtalo más tarde."
                 : "Aún no tenemos actividades para mostrar. Ajusta tus intereses o inténtalo más tarde."}
             </Text>
-          )}
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.card, item.isFallback ? styles.cardFallback : undefined]}
-              onPress={() => toggleItem(item.id)}
-              accessibilityRole="button"
-              disabled={item.isFallback || item.pending}
-            >
-              <View style={[styles.check, item.done && styles.checkDone, item.pending && styles.checkPending]}>
-                {item.pending ? (
-                  <ActivityIndicator size="small" color={item.done ? "#FFFFFF" : "#0f766e"} />
-                ) : (
-                  <Text style={{ fontSize: 16 }}>{item.done ? "✅" : "⭕"}</Text>
-                )}
-              </View>
-              <Text style={styles.emoji}>{item.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                {!item.isFallback && item.category && (
-                  <Text style={styles.categoryPill}>🎯 {item.category}</Text>
-                )}
-                {!item.isFallback && item.accessibilityLabels?.length ? (
-                  <View style={styles.accessibilityRow}>
-                    {item.accessibilityLabels.map((label, idx) => (
-                      <Text key={`${label}-${idx}`} style={styles.accessibilityBadge}>
-                        {label}
-                      </Text>
-                    ))}
-                  </View>
-                ) : null}
-                {item.isFallback && (
-                  <Text style={styles.fallbackText}>Agrega más intereses para recibir ideas nuevas.</Text>
-                )}
-                {item.isFallback && (
-                  <TouchableOpacity
-                    style={styles.fallbackButton}
-                    onPress={() => router.push("/interests")}
-                    accessibilityRole="button"
-                    accessibilityLabel="Editar intereses"
-                  >
-                    <Text style={styles.fallbackButtonText}>Editar intereses</Text>
-                  </TouchableOpacity>
-                )}
-                {!item.isFallback && (
-                  <TouchableOpacity
-                    style={styles.dismissButton}
-                    onPress={() => startReport(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`No me interesa ${item.title}`}
-                  >
-                    <Text style={styles.dismissButtonText}>No me interesa</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              {!item.isFallback && (
-                <TouchableOpacity
-                  style={[
-                    styles.favoriteButton,
-                    item.favorite && styles.favoriteButtonActive,
-                    item.favoritePending && styles.favoriteButtonDisabled,
-                  ]}
-                  onPress={() => toggleFavorite(item.id)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${item.favorite ? "Quitar de favoritos" : "Agregar a favoritos"} ${item.title}`}
-                  disabled={item.favoritePending}
-                >
-                  {item.favoritePending ? (
-                    <ActivityIndicator size="small" color="#F59E0B" />
-                  ) : (
-                    <Text style={[styles.favoriteIcon, item.favorite && styles.favoriteIconActive]}>
-                      {item.favorite ? "★" : "☆"}
+          ) : null
+        }
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[styles.card, item.isFallback ? styles.cardFallback : undefined]}
+            onPress={() => toggleItem(item.id)}
+            accessibilityRole="button"
+            disabled={item.isFallback || item.pending}
+          >
+            <View style={[styles.check, item.done && styles.checkDone, item.pending && styles.checkPending]}>
+              {item.pending ? (
+                <ActivityIndicator size="small" color={item.done ? "#FFFFFF" : "#0f766e"} />
+              ) : (
+                <Text style={{ fontSize: 16 }}>{item.done ? "✅" : "⭕"}</Text>
+              )}
+            </View>
+            <Text style={styles.emoji}>{item.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              {!item.isFallback && item.category && (
+                <Text style={styles.categoryPill}>🎯 {item.category}</Text>
+              )}
+              {!item.isFallback && item.accessibilityLabels?.length ? (
+                <View style={styles.accessibilityRow}>
+                  {item.accessibilityLabels.map((label, idx) => (
+                    <Text key={`${label}-${idx}`} style={styles.accessibilityBadge}>
+                      {label}
                     </Text>
-                  )}
+                  ))}
+                </View>
+              ) : null}
+              {item.isFallback && (
+                <Text style={styles.fallbackText}>Agrega más intereses para recibir ideas nuevas.</Text>
+              )}
+              {item.isFallback && (
+                <TouchableOpacity
+                  style={styles.fallbackButton}
+                  onPress={() => router.push("/interests")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Editar intereses"
+                >
+                  <Text style={styles.fallbackButtonText}>Editar intereses</Text>
                 </TouchableOpacity>
               )}
-            </TouchableOpacity>
-          )}
-        />
-      )}
-
-      <Text style={styles.progress}>Has completado {completed} de {items.length} actividades hoy 🎉</Text>
+              {!item.isFallback && (
+                <TouchableOpacity
+                  style={styles.dismissButton}
+                  onPress={() => startReport(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`No me interesa ${item.title}`}
+                >
+                  <Text style={styles.dismissButtonText}>No me interesa</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {!item.isFallback && (
+              <TouchableOpacity
+                style={[
+                  styles.favoriteButton,
+                  item.favorite && styles.favoriteButtonActive,
+                  item.favoritePending && styles.favoriteButtonDisabled,
+                ]}
+                onPress={() => toggleFavorite(item.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.favorite ? "Quitar de favoritos" : "Agregar a favoritos"} ${item.title}`}
+                disabled={item.favoritePending}
+              >
+                {item.favoritePending ? (
+                  <ActivityIndicator size="small" color="#F59E0B" />
+                ) : (
+                  <Text style={[styles.favoriteIcon, item.favorite && styles.favoriteIconActive]}>
+                    {item.favorite ? "★" : "☆"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+        )}
+      />
 
       {feedbackTarget && (
         <Modal
@@ -1061,7 +1085,8 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.bg, paddingHorizontal: 16 },
+  container: { flex: 1, backgroundColor: theme.bg },
+  listContent: { paddingHorizontal: 16 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
   appName: { color: theme.text, fontFamily: "MontserratSemiBold", fontSize: 20 },
   bell: { fontSize: 24 },
@@ -1095,7 +1120,7 @@ const styles = StyleSheet.create({
   eventTitle: { fontFamily: "MontserratSemiBold", color: theme.text, fontSize: 17, marginBottom: 4 },
   eventMeta: { fontFamily: "NunitoRegular", color: "#4B5563", fontSize: 14, marginBottom: 2 },
   eventLinkText: { fontFamily: "MontserratSemiBold", color: theme.primary, alignSelf: "center" },
-  listLoading: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 32 },
+  listLoading: { justifyContent: "center", alignItems: "center", paddingVertical: 32 },
   loadingText: { marginTop: 12, color: "#4B5563", fontFamily: "NunitoRegular" },
   card: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#E5E7EB" },
   cardFallback: { backgroundColor: "#FFFBEB", borderColor: "#FBBF24" },
