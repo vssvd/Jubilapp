@@ -1,14 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { fetchAdminStatus, fetchAdminUsers, type AdminUser, type AdminUserFilters } from "../../src/api/admin";
+import * as Sharing from "expo-sharing";
+
+import {
+  downloadAdminStats,
+  fetchAdminStatus,
+  fetchAdminStats,
+  fetchAdminUsers,
+  type AdminStats,
+  type AdminStatsFilters,
+  type AdminUser,
+  type AdminUserFilters,
+} from "../../src/api/admin";
 import { theme } from "../../src/lib/theme";
 
 type FilterState = {
   startDate: string;
   endDate: string;
 };
+
+type AdminPanelView = "menu" | "filters" | "stats";
 
 const EMPTY_FILTERS: FilterState = { startDate: "", endDate: "" };
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -48,6 +61,51 @@ function statusBadge(status: string): { label: string; backgroundColor: string; 
   }
 }
 
+function formatNumber(value: number): string {
+  try {
+    return new Intl.NumberFormat("es-CL").format(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatMetric(value: number): string {
+  if (Number.isInteger(value)) {
+    return formatNumber(value);
+  }
+  return value.toFixed(1);
+}
+
+function formatDateOnly(value: Date): string {
+  const year = value.getFullYear();
+  const month = (value.getMonth() + 1).toString().padStart(2, "0");
+  const day = value.getDate().toString().padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildDefaultStatsRange(): FilterState {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(end.getDate() - 29);
+  return {
+    startDate: formatDateOnly(start),
+    endDate: formatDateOnly(end),
+  };
+}
+
+function toStatsFilters(state: FilterState): AdminStatsFilters {
+  const payload: AdminStatsFilters = {};
+  if (state.startDate) payload.startDate = state.startDate;
+  if (state.endDate) payload.endDate = state.endDate;
+  return payload;
+}
+
+function shortDayLabel(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `${(date.getMonth() + 1).toString().padStart(2, "0")}/${date.getDate().toString().padStart(2, "0")}`;
+}
+
 export default function AdminUsersScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -61,6 +119,18 @@ export default function AdminUsersScreen() {
   const [filterError, setFilterError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
+  const defaultStatsRange = useMemo(() => buildDefaultStatsRange(), []);
+  const [statsFilters, setStatsFilters] = useState<FilterState>(defaultStatsRange);
+  const [currentStatsFilters, setCurrentStatsFilters] = useState<AdminStatsFilters>({
+    startDate: defaultStatsRange.startDate,
+    endDate: defaultStatsRange.endDate,
+  });
+  const [statsFilterError, setStatsFilterError] = useState<string | null>(null);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [activeView, setActiveView] = useState<AdminPanelView>("menu");
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [exportingFormat, setExportingFormat] = useState<"csv" | "pdf" | null>(null);
 
   useEffect(() => {
     (navigation as any)?.setOptions?.({
@@ -73,6 +143,27 @@ export default function AdminUsersScreen() {
       ),
     });
   }, [navigation, router]);
+
+  const loadStats = useCallback(
+    async (params?: AdminStatsFilters) => {
+      const filtersToUse = params ?? currentStatsFilters;
+      const queryPayload = filtersToUse && Object.keys(filtersToUse).length > 0 ? filtersToUse : undefined;
+      setStatsLoading(true);
+      setStatsError(null);
+      try {
+        const data = await fetchAdminStats(queryPayload);
+        setStats(data);
+        if (params !== undefined) {
+          setCurrentStatsFilters(filtersToUse);
+        }
+      } catch (e: any) {
+        setStatsError(e?.message ?? "No se pudo cargar las estadísticas.");
+      } finally {
+        setStatsLoading(false);
+      }
+    },
+    [currentStatsFilters],
+  );
 
   const loadUsers = useCallback(
     async (params?: AdminUserFilters) => {
@@ -103,14 +194,14 @@ export default function AdminUsersScreen() {
       const status = await fetchAdminStatus();
       setIsAdmin(status.is_admin);
       if (status.is_admin) {
-        await loadUsers({});
+        await Promise.all([loadStats(currentStatsFilters), loadUsers({})]);
       }
     } catch (e: any) {
       setAccessError(e?.message ?? "No se pudo verificar el acceso.");
     } finally {
       setAccessChecked(true);
     }
-  }, [loadUsers]);
+  }, [currentStatsFilters, loadStats, loadUsers]);
 
   useEffect(() => {
     void verifyAccessAndLoad();
@@ -139,6 +230,50 @@ export default function AdminUsersScreen() {
     await loadUsers({});
   }, [loadUsers]);
 
+  const applyStatsFilters = useCallback(async () => {
+    if (statsFilters.startDate && !DATE_REGEX.test(statsFilters.startDate)) {
+      setStatsFilterError("Usa el formato AAAA-MM-DD para la fecha inicial.");
+      return;
+    }
+    if (statsFilters.endDate && !DATE_REGEX.test(statsFilters.endDate)) {
+      setStatsFilterError("Usa el formato AAAA-MM-DD para la fecha final.");
+      return;
+    }
+    setStatsFilterError(null);
+    await loadStats(toStatsFilters(statsFilters));
+  }, [loadStats, statsFilters]);
+
+  const clearStatsFilters = useCallback(async () => {
+    const defaults = buildDefaultStatsRange();
+    setStatsFilters(defaults);
+    setStatsFilterError(null);
+    await loadStats(toStatsFilters(defaults));
+  }, [loadStats]);
+
+  const handleExport = useCallback(
+    async (format: "csv" | "pdf") => {
+      if (exportingFormat) return;
+      setExportingFormat(format);
+      try {
+        const exported = await downloadAdminStats(format, currentStatsFilters);
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(exported.uri, {
+            mimeType: exported.mimeType,
+            dialogTitle: `Compartir ${format.toUpperCase()}`,
+          });
+        } else {
+          Alert.alert("Archivo generado", `Se guardó en:\n${exported.uri}`);
+        }
+      } catch (e: any) {
+        Alert.alert("Exportación fallida", e?.message ?? "No se pudo exportar las estadísticas.");
+      } finally {
+        setExportingFormat(null);
+      }
+    },
+    [currentStatsFilters, exportingFormat],
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -148,7 +283,7 @@ export default function AdminUsersScreen() {
     }
   }, [loadUsers, currentFilters]);
 
-  const header = useMemo(() => {
+  const userFiltersHeader = useMemo(() => {
     if (!isAdmin) return null;
     return (
       <View style={styles.filters}>
@@ -204,6 +339,206 @@ export default function AdminUsersScreen() {
     );
   }, [applyFilters, clearFilters, currentFilters.endDate, currentFilters.startDate, filterError, filters.endDate, filters.startDate, isAdmin, users.length]);
 
+  const statsPanel = useMemo(() => {
+    if (!isAdmin) return null;
+    const summary = stats?.summary;
+    const recentDaily = stats?.dailyActive ? stats.dailyActive.slice(-10) : [];
+    const maxDaily = recentDaily.reduce((max, item) => Math.max(max, item.activeUsers), 0);
+    const topActivities = stats?.topActivities ? stats.topActivities.slice(0, 5) : [];
+    const categoryItems = stats?.categoryBreakdown ? stats.categoryBreakdown.slice(0, 5) : [];
+
+    return (
+      <View style={styles.statsPanel}>
+        <Text style={styles.sectionTitle}>Estadísticas de uso</Text>
+        <Text style={styles.helpText}>Selecciona un rango para revisar MAU/DAU, actividades destacadas y categorías.</Text>
+        <View style={styles.filterRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Desde</Text>
+            <TextInput
+              value={statsFilters.startDate}
+              onChangeText={(value) => setStatsFilters((prev) => ({ ...prev, startDate: value }))}
+              placeholder="2024-01-01"
+              style={styles.input}
+              keyboardType="numbers-and-punctuation"
+              autoCapitalize="none"
+            />
+          </View>
+          <View style={{ width: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Hasta</Text>
+            <TextInput
+              value={statsFilters.endDate}
+              onChangeText={(value) => setStatsFilters((prev) => ({ ...prev, endDate: value }))}
+              placeholder="2024-12-31"
+              style={styles.input}
+              keyboardType="numbers-and-punctuation"
+              autoCapitalize="none"
+            />
+          </View>
+        </View>
+        {statsFilterError ? <Text style={styles.filterError}>{statsFilterError}</Text> : null}
+        <View style={styles.actions}>
+          <TouchableOpacity style={[styles.actionBtn, styles.outlineBtn]} onPress={() => { void clearStatsFilters(); }}>
+            <Text style={[styles.actionBtnText, styles.outlineBtnText]}>Limpiar</Text>
+          </TouchableOpacity>
+          <View style={{ width: 12 }} />
+          <TouchableOpacity style={[styles.actionBtn, styles.primaryBtn]} onPress={() => { void applyStatsFilters(); }}>
+            <Text style={styles.actionBtnText}>Actualizar</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.exportRow}>
+          <TouchableOpacity
+            style={[styles.exportBtn, exportingFormat === "csv" ? styles.disabledBtn : styles.primaryBtn]}
+            onPress={() => { void handleExport("csv"); }}
+            disabled={!!exportingFormat || statsLoading}
+          >
+            <Text style={[styles.actionBtnText, styles.exportBtnText]}>
+              {exportingFormat === "csv" ? "Generando CSV…" : "Exportar CSV"}
+            </Text>
+          </TouchableOpacity>
+          <View style={{ width: 12 }} />
+          <TouchableOpacity
+            style={[styles.exportBtn, exportingFormat === "pdf" ? styles.disabledBtn : styles.secondaryBtn]}
+            onPress={() => { void handleExport("pdf"); }}
+            disabled={!!exportingFormat || statsLoading}
+          >
+            <Text style={[styles.actionBtnText, styles.exportBtnText]}>
+              {exportingFormat === "pdf" ? "Generando PDF…" : "Exportar PDF"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {statsLoading ? (
+          <View style={styles.statsLoadingRow}>
+            <ActivityIndicator color={theme.primary} />
+            <Text style={styles.loadingHint}>Calculando métricas…</Text>
+          </View>
+        ) : null}
+        {statsError ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{statsError}</Text>
+          </View>
+        ) : null}
+        {summary ? (
+          <>
+            <View style={[styles.meta, { marginTop: 12 }]}>
+              <Text style={styles.metaText}>
+                Rango aplicado:{" "}
+                <Text style={styles.metaStrong}>
+                  {summary.rangeStart} → {summary.rangeEnd}
+                </Text>
+              </Text>
+              <Text style={styles.metaChip}>Actualizado {formatDateTime(stats!.generatedAt)}</Text>
+            </View>
+            <View style={styles.metricGrid}>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>MAU</Text>
+                <Text style={styles.metricValue}>{formatMetric(summary.mauCurrent)}</Text>
+                <Text style={styles.metricHint}>Mes en curso</Text>
+              </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>DAU promedio</Text>
+                <Text style={styles.metricValue}>{formatMetric(summary.dauAverage)}</Text>
+                <Text style={styles.metricHint}>Usuarios diarios</Text>
+              </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Actividades</Text>
+                <Text style={styles.metricValue}>{formatNumber(summary.totalActivities)}</Text>
+                <Text style={styles.metricHint}>Completadas</Text>
+              </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Usuarios únicos</Text>
+                <Text style={styles.metricValue}>{formatNumber(summary.uniqueUsers)}</Text>
+                <Text style={styles.metricHint}>En el rango</Text>
+              </View>
+            </View>
+            {recentDaily.length ? (
+              <View style={styles.dailyPanel}>
+                <Text style={styles.subSectionTitle}>DAU últimos {recentDaily.length} días</Text>
+                <View style={styles.barChart}>
+                  {recentDaily.map((point) => {
+                    const height = maxDaily ? Math.max(4, (point.activeUsers / maxDaily) * 60) : 4;
+                    return (
+                      <View key={point.date} style={styles.barColumn}>
+                        <View style={[styles.barValue, { height }]} />
+                        <Text style={styles.barLabel}>{shortDayLabel(point.date)}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+            <View style={styles.topSection}>
+              <Text style={styles.subSectionTitle}>Top actividades</Text>
+              {topActivities.length ? (
+                topActivities.map((item, index) => (
+                  <View key={`${item.title}-${index}`} style={styles.topRow}>
+                    <View style={styles.topRank}>
+                      <Text style={styles.topRankText}>{index + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.topTitle}>{item.title}</Text>
+                      <Text style={styles.topSubtitle}>
+                        {(item.category || "Sin categoría")} · {formatNumber(item.count)} ({item.percentage.toFixed(1)}%)
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.helpText}>Aún no hay actividades registradas en este rango.</Text>
+              )}
+            </View>
+            <View style={styles.categorySection}>
+              <Text style={styles.subSectionTitle}>Categorías destacadas</Text>
+              {categoryItems.length ? (
+                categoryItems.map((item) => (
+                  <View key={item.category} style={styles.categoryRow}>
+                    <Text style={styles.categoryName}>{item.category}</Text>
+                    <View style={styles.categoryBar}>
+                      <View style={[styles.categoryBarFill, { width: `${Math.min(100, item.percentage)}%` }]} />
+                    </View>
+                    <Text style={styles.categoryValue}>{item.percentage.toFixed(1)}%</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.helpText}>Sin actividades clasificadas en este rango.</Text>
+              )}
+            </View>
+          </>
+        ) : (
+          !statsError && !statsLoading ? <Text style={styles.helpText}>Aplica un rango para ver métricas.</Text> : null
+        )}
+      </View>
+    );
+  }, [
+    applyStatsFilters,
+    clearStatsFilters,
+    exportingFormat,
+    handleExport,
+    isAdmin,
+    stats,
+    statsError,
+    statsFilterError,
+    statsFilters.endDate,
+    statsFilters.startDate,
+    statsLoading,
+  ]);
+
+  const filtersListHeader = useMemo(() => {
+    if (!isAdmin) return null;
+    return (
+      <View>
+        <View style={styles.viewHeader}>
+          <TouchableOpacity style={styles.backRow} onPress={() => setActiveView("menu")} accessibilityRole="button">
+            <Text style={styles.backText}>{"< Opciones"}</Text>
+          </TouchableOpacity>
+          <Text style={styles.viewTitle}>Filtrado por uso</Text>
+          <Text style={styles.viewSubtitle}>Revisa usuarios registrados y su estado según el rango que definas.</Text>
+        </View>
+        {userFiltersHeader}
+      </View>
+    );
+  }, [isAdmin, setActiveView, userFiltersHeader]);
+
   const renderUser = useCallback(({ item }: { item: AdminUser }) => {
     const badge = statusBadge(item.status);
     const lastActivity = item.last_activity_at ? formatDateTime(item.last_activity_at) : null;
@@ -258,6 +593,54 @@ export default function AdminUsersScreen() {
     );
   }
 
+  if (activeView === "menu") {
+    return (
+      <View style={[styles.container, styles.menuWrapper]}>
+        <View style={styles.menuIntro}>
+          <Text style={styles.sectionTitle}>Panel administrador</Text>
+          <Text style={styles.helpText}>Elige qué herramienta quieres revisar.</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.selectionCard}
+          onPress={() => setActiveView("filters")}
+          accessibilityRole="button"
+        >
+          <Text style={styles.selectionTag}>Usuarios</Text>
+          <Text style={styles.selectionTitle}>Filtrado por uso</Text>
+          <Text style={styles.selectionSubtitle}>
+            Consulta la lista de usuarios registrados y aplica rangos de fechas para analizar su actividad.
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.selectionCard}
+          onPress={() => setActiveView("stats")}
+          accessibilityRole="button"
+        >
+          <Text style={styles.selectionTag}>Estadísticas</Text>
+          <Text style={styles.selectionTitle}>Estadísticas de uso</Text>
+          <Text style={styles.selectionSubtitle}>
+            Visualiza DAU, MAU, actividades destacadas y categorías antes de exportar los datos.
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (activeView === "stats") {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.statsScroll}>
+        <View style={styles.viewHeader}>
+          <TouchableOpacity style={styles.backRow} onPress={() => setActiveView("menu")} accessibilityRole="button">
+            <Text style={styles.backText}>{"< Opciones"}</Text>
+          </TouchableOpacity>
+          <Text style={styles.viewTitle}>Estadísticas de uso</Text>
+          <Text style={styles.viewSubtitle}>Selecciona un rango de fechas para revisar DAU/MAU y exportar reportes.</Text>
+        </View>
+        {statsPanel}
+      </ScrollView>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {loading && users.length === 0 ? (
@@ -276,7 +659,7 @@ export default function AdminUsersScreen() {
         keyExtractor={(item) => item.uid}
         renderItem={renderUser}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListHeaderComponent={header}
+        ListHeaderComponent={filtersListHeader ?? undefined}
         contentContainerStyle={{ paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void onRefresh(); }} colors={[theme.primary]} />}
         ListEmptyComponent={
@@ -298,6 +681,14 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 12,
     backgroundColor: theme.bg,
+  },
+  statsPanel: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    backgroundColor: theme.bg,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
   },
   sectionTitle: { fontSize: 18, fontWeight: "700", color: theme.text, marginBottom: 4 },
   helpText: { color: theme.muted, marginBottom: 12 },
@@ -323,9 +714,22 @@ const styles = StyleSheet.create({
   },
   actionBtnText: { fontSize: 16, fontWeight: "700" },
   primaryBtn: { backgroundColor: theme.primary },
+  secondaryBtn: { backgroundColor: "#4B5563" },
   outlineBtn: { borderWidth: 1, borderColor: theme.border, backgroundColor: "#fff" },
   outlineBtnText: { color: theme.text },
   retryBtn: { width: "70%", alignSelf: "center", marginTop: 16, flex: 0 },
+  exportRow: { flexDirection: "row", marginTop: 12 },
+  exportBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: theme.radius,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exportBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  disabledBtn: { opacity: 0.7 },
+  statsLoadingRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12 },
+  loadingHint: { color: theme.muted },
   meta: { marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   metaText: { color: theme.muted },
   metaStrong: { color: theme.text, fontWeight: "700" },
@@ -338,6 +742,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   statusHint: { marginTop: 8, color: theme.muted, fontSize: 12 },
+  metricGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 16 },
+  metricCard: {
+    flexBasis: "48%",
+    backgroundColor: "#fff",
+    borderRadius: theme.radius,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  metricLabel: { color: theme.muted, fontSize: 12, fontWeight: "600" },
+  metricValue: { fontSize: 22, fontWeight: "800", color: theme.text, marginTop: 4 },
+  metricHint: { color: theme.muted, fontSize: 12, marginTop: 2 },
+  dailyPanel: { marginTop: 20 },
+  subSectionTitle: { fontSize: 16, fontWeight: "700", color: theme.text, marginBottom: 8 },
+  barChart: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
+  barColumn: { alignItems: "center", flex: 1 },
+  barValue: { width: 12, borderRadius: 6, backgroundColor: theme.primary },
+  barLabel: { fontSize: 10, color: theme.muted, marginTop: 4 },
+  topSection: { marginTop: 20 },
+  topRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  topRank: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#E0F2FE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topRankText: { color: "#0369A1", fontWeight: "700" },
+  topTitle: { color: theme.text, fontWeight: "700" },
+  topSubtitle: { color: theme.muted, fontSize: 12 },
+  categorySection: { marginTop: 16 },
+  categoryRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  categoryName: { flex: 1, color: theme.text },
+  categoryBar: { flex: 2, height: 6, borderRadius: 999, backgroundColor: "#E5E7EB", overflow: "hidden" },
+  categoryBarFill: { height: "100%", backgroundColor: theme.primary },
+  categoryValue: { width: 60, textAlign: "right", color: theme.muted, fontWeight: "600" },
   row: {
     marginHorizontal: 20,
     paddingVertical: 16,
@@ -378,4 +819,30 @@ const styles = StyleSheet.create({
   },
   errorText: { color: theme.danger },
   empty: { paddingHorizontal: 20, paddingTop: 40 },
+  menuWrapper: { paddingHorizontal: 20, paddingTop: 32 },
+  menuIntro: { marginBottom: 16 },
+  selectionCard: {
+    backgroundColor: "#fff",
+    borderRadius: theme.radius,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: theme.border,
+    marginBottom: 16,
+  },
+  selectionTag: { fontSize: 12, fontWeight: "700", color: theme.primary, textTransform: "uppercase" },
+  selectionTitle: { fontSize: 20, fontWeight: "800", color: theme.text, marginTop: 6 },
+  selectionSubtitle: { color: theme.muted, marginTop: 6, lineHeight: 20 },
+  viewHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: theme.bg,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  backRow: { paddingVertical: 4, marginBottom: 12 },
+  backText: { color: theme.primary, fontWeight: "700" },
+  viewTitle: { fontSize: 22, fontWeight: "800", color: theme.text },
+  viewSubtitle: { marginTop: 4, color: theme.muted },
+  statsScroll: { paddingBottom: 32 },
 });

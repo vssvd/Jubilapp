@@ -1,11 +1,19 @@
 from datetime import date, datetime, time, timezone, timedelta
+import io
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from firebase_admin import auth
 
-from app.schemas import AdminStatusOut, AdminUserList, AdminUserOut
+from app.schemas import AdminStatusOut, AdminStatsOut, AdminUserList, AdminUserOut
 from app.security import is_admin_user, require_admin, verify_firebase_token
+from app.services.admin_stats import (
+    EXPORT_FORMATS,
+    compute_admin_stats,
+    stats_to_csv,
+    stats_to_pdf,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -94,3 +102,81 @@ def list_users(
 
     users.sort(key=lambda user: user.created_at, reverse=True)
     return AdminUserList(total=len(users), items=users)
+
+
+def _resolve_date_range(
+    start_date: Optional[date],
+    end_date: Optional[date],
+) -> tuple[date, date]:
+    today = date.today()
+    resolved_end = end_date or today
+    resolved_start = start_date or (resolved_end - timedelta(days=29))
+
+    if resolved_start > resolved_end:
+        raise HTTPException(status_code=400, detail="La fecha inicial debe ser anterior o igual a la final.")
+
+    return resolved_start, resolved_end
+
+
+@router.get("/statistics", response_model=AdminStatsOut)
+def statistics(
+    start_date: Optional[date] = Query(
+        default=None,
+        description="YYYY-MM-DD. Por defecto últimos 30 días.",
+        alias="start_date",
+    ),
+    end_date: Optional[date] = Query(
+        default=None,
+        description="YYYY-MM-DD. Por defecto hoy.",
+        alias="end_date",
+    ),
+    top_limit: int = Query(5, ge=1, le=20, description="Cantidad máxima de actividades destacadas."),
+    _admin=Depends(require_admin),
+) -> AdminStatsOut:
+    resolved_start, resolved_end = _resolve_date_range(start_date, end_date)
+    try:
+        return compute_admin_stats(resolved_start, resolved_end, top_limit=top_limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/statistics/export")
+def export_statistics(
+    format: str = Query(
+        "csv",
+        description="Formato deseado: csv o pdf.",
+        pattern="^(csv|pdf)$",
+    ),
+    start_date: Optional[date] = Query(None, alias="start_date"),
+    end_date: Optional[date] = Query(None, alias="end_date"),
+    top_limit: int = Query(10, ge=1, le=20),
+    _admin=Depends(require_admin),
+):
+    resolved_start, resolved_end = _resolve_date_range(start_date, end_date)
+    try:
+        stats = compute_admin_stats(resolved_start, resolved_end, top_limit=top_limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    filename = f"jubilapp_stats_{resolved_start.isoformat()}_{resolved_end.isoformat()}.{format}"
+
+    if format == "csv":
+        payload = stats_to_csv(stats).encode("utf-8")
+        return StreamingResponse(
+            io.BytesIO(payload),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "X-Available-Formats": ",".join(EXPORT_FORMATS),
+            },
+        )
+
+    pdf_bytes = stats_to_pdf(stats)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Available-Formats": ",".join(EXPORT_FORMATS),
+        },
+    )
