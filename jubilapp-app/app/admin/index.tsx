@@ -2,10 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import * as Sharing from "expo-sharing";
 
 import {
-  downloadAdminStats,
   fetchAdminStatus,
   fetchAdminStats,
   fetchAdminUsers,
@@ -130,7 +128,6 @@ export default function AdminUsersScreen() {
   const [statsLoading, setStatsLoading] = useState(false);
   const [activeView, setActiveView] = useState<AdminPanelView>("menu");
   const [statsError, setStatsError] = useState<string | null>(null);
-  const [exportingFormat, setExportingFormat] = useState<"csv" | "pdf" | null>(null);
 
   useEffect(() => {
     (navigation as any)?.setOptions?.({
@@ -250,30 +247,6 @@ export default function AdminUsersScreen() {
     await loadStats(toStatsFilters(defaults));
   }, [loadStats]);
 
-  const handleExport = useCallback(
-    async (format: "csv" | "pdf") => {
-      if (exportingFormat) return;
-      setExportingFormat(format);
-      try {
-        const exported = await downloadAdminStats(format, currentStatsFilters);
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(exported.uri, {
-            mimeType: exported.mimeType,
-            dialogTitle: `Compartir ${format.toUpperCase()}`,
-          });
-        } else {
-          Alert.alert("Archivo generado", `Se guardó en:\n${exported.uri}`);
-        }
-      } catch (e: any) {
-        Alert.alert("Exportación fallida", e?.message ?? "No se pudo exportar las estadísticas.");
-      } finally {
-        setExportingFormat(null);
-      }
-    },
-    [currentStatsFilters, exportingFormat],
-  );
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -386,26 +359,11 @@ export default function AdminUsersScreen() {
             <Text style={styles.actionBtnText}>Actualizar</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.exportRow}>
-          <TouchableOpacity
-            style={[styles.exportBtn, exportingFormat === "csv" ? styles.disabledBtn : styles.primaryBtn]}
-            onPress={() => { void handleExport("csv"); }}
-            disabled={!!exportingFormat || statsLoading}
-          >
-            <Text style={[styles.actionBtnText, styles.exportBtnText]}>
-              {exportingFormat === "csv" ? "Generando CSV…" : "Exportar CSV"}
-            </Text>
-          </TouchableOpacity>
-          <View style={{ width: 12 }} />
-          <TouchableOpacity
-            style={[styles.exportBtn, exportingFormat === "pdf" ? styles.disabledBtn : styles.secondaryBtn]}
-            onPress={() => { void handleExport("pdf"); }}
-            disabled={!!exportingFormat || statsLoading}
-          >
-            <Text style={[styles.actionBtnText, styles.exportBtnText]}>
-              {exportingFormat === "pdf" ? "Generando PDF…" : "Exportar PDF"}
-            </Text>
-          </TouchableOpacity>
+        <View style={[styles.noticeBox, { marginTop: 12 }]}>
+          <Text style={styles.noticeTitle}>Exportación</Text>
+          <Text style={styles.noticeText}>
+            Estamos habilitando una nueva forma de descargar estos datos. Por ahora puedes revisarlos dentro de la app.
+          </Text>
         </View>
         {statsLoading ? (
           <View style={styles.statsLoadingRow}>
@@ -509,19 +467,7 @@ export default function AdminUsersScreen() {
         )}
       </View>
     );
-  }, [
-    applyStatsFilters,
-    clearStatsFilters,
-    exportingFormat,
-    handleExport,
-    isAdmin,
-    stats,
-    statsError,
-    statsFilterError,
-    statsFilters.endDate,
-    statsFilters.startDate,
-    statsLoading,
-  ]);
+  }, [applyStatsFilters, clearStatsFilters, isAdmin, stats, statsError, statsFilterError, statsFilters.endDate, statsFilters.startDate, statsLoading]);
 
   const filtersListHeader = useMemo(() => {
     if (!isAdmin) return null;
@@ -619,7 +565,7 @@ export default function AdminUsersScreen() {
           <Text style={styles.selectionTag}>Estadísticas</Text>
           <Text style={styles.selectionTitle}>Estadísticas de uso</Text>
           <Text style={styles.selectionSubtitle}>
-            Visualiza DAU, MAU, actividades destacadas y categorías antes de exportar los datos.
+            Visualiza DAU, MAU, actividades destacadas y categorías con filtros flexibles.
           </Text>
         </TouchableOpacity>
       </View>
@@ -634,7 +580,7 @@ export default function AdminUsersScreen() {
             <Text style={styles.backText}>{"< Opciones"}</Text>
           </TouchableOpacity>
           <Text style={styles.viewTitle}>Estadísticas de uso</Text>
-          <Text style={styles.viewSubtitle}>Selecciona un rango de fechas para revisar DAU/MAU y exportar reportes.</Text>
+          <Text style={styles.viewSubtitle}>Selecciona un rango de fechas para revisar DAU/MAU y las métricas clave.</Text>
         </View>
         {statsPanel}
       </ScrollView>
@@ -718,16 +664,15 @@ const styles = StyleSheet.create({
   outlineBtn: { borderWidth: 1, borderColor: theme.border, backgroundColor: "#fff" },
   outlineBtnText: { color: theme.text },
   retryBtn: { width: "70%", alignSelf: "center", marginTop: 16, flex: 0 },
-  exportRow: { flexDirection: "row", marginTop: 12 },
-  exportBtn: {
-    flex: 1,
-    paddingVertical: 12,
+  noticeBox: {
+    padding: 12,
     borderRadius: theme.radius,
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
   },
-  exportBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  disabledBtn: { opacity: 0.7 },
+  noticeTitle: { fontWeight: "700", color: theme.text, marginBottom: 4 },
+  noticeText: { color: theme.muted, fontSize: 13, lineHeight: 18 },
   statsLoadingRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12 },
   loadingHint: { color: theme.muted },
   meta: { marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

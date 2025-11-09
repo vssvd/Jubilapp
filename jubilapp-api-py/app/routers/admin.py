@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timezone, timedelta
 import io
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from fastapi.responses import StreamingResponse
 from firebase_admin import auth
 
@@ -18,6 +18,33 @@ from app.services.admin_stats import (
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 INACTIVE_AFTER_DAYS = 30
+
+
+def _require_admin_from_request(
+    authorization: str | None,
+    token: Optional[str],
+) -> dict:
+    raw_token: Optional[str] = None
+    if authorization and authorization.lower().startswith("bearer "):
+        raw_token = authorization.split(" ", 1)[1].strip()
+    elif token:
+        raw_token = token.strip()
+
+    if not raw_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Falta el encabezado Authorization o el parámetro token.",
+        )
+
+    try:
+        decoded = auth.verify_id_token(raw_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado.")
+
+    if not is_admin_user(decoded):
+        raise HTTPException(status_code=403, detail="Solo administradores pueden acceder a este recurso.")
+
+    return decoded
 
 def _as_datetime(timestamp_ms: Optional[int]) -> Optional[datetime]:
     if not timestamp_ms:
@@ -150,8 +177,10 @@ def export_statistics(
     start_date: Optional[date] = Query(None, alias="start_date"),
     end_date: Optional[date] = Query(None, alias="end_date"),
     top_limit: int = Query(10, ge=1, le=20),
-    _admin=Depends(require_admin),
+    token: Optional[str] = Query(None, description="ID token opcional para descargas directas."),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ):
+    _require_admin_from_request(authorization, token)
     resolved_start, resolved_end = _resolve_date_range(start_date, end_date)
     try:
         stats = compute_admin_stats(resolved_start, resolved_end, top_limit=top_limit)

@@ -1,4 +1,6 @@
-import { cacheDirectory, documentDirectory, downloadAsync } from "expo-file-system";
+import * as FileSystem from "expo-file-system";
+import * as WebBrowser from "expo-web-browser";
+import { Linking, Platform } from "react-native";
 
 import { API_BASE, authHeader, request } from "./client";
 
@@ -105,6 +107,22 @@ function buildStatsQuery(filters?: AdminStatsFilters): string {
   return qs ? `?${qs}` : "";
 }
 
+function buildExportUrl(format: "csv" | "pdf", filters?: AdminStatsFilters): string {
+  const query = buildStatsQuery(filters);
+  const separator = query ? "&" : "?";
+  return `${API_BASE}/api/admin/statistics/export${query}${separator}format=${format}`;
+}
+
+async function resolveAuthHeaders() {
+  const headers = await authHeader();
+  const authValue = headers.Authorization || headers.authorization;
+  let token: string | undefined;
+  if (authValue && authValue.startsWith("Bearer ")) {
+    token = authValue.slice(7);
+  }
+  return { headers, token };
+}
+
 function buildExportFilename(format: "csv" | "pdf", filters?: AdminStatsFilters): string {
   if (filters?.startDate && filters?.endDate) {
     return `jubilapp-stats-${filters.startDate}-${filters.endDate}.${format}`;
@@ -134,19 +152,61 @@ export async function fetchAdminStats(filters?: AdminStatsFilters): Promise<Admi
 }
 
 export async function downloadAdminStats(format: "csv" | "pdf", filters?: AdminStatsFilters): Promise<AdminStatsExport> {
-  const query = buildStatsQuery(filters);
-  const separator = query ? "&" : "?";
-  const url = `${API_BASE}/api/admin/statistics/export${query}${separator}format=${format}`;
+  const url = buildExportUrl(format, filters);
   const filename = buildExportFilename(format, filters);
-  const directory = cacheDirectory || documentDirectory;
-  if (!directory) {
-    throw new Error("No hay un directorio disponible para guardar el archivo.");
+  const mimeType = format === "csv" ? "text/csv" : "application/pdf";
+  const { headers } = await resolveAuthHeaders();
+
+  if (Platform.OS === "web") {
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || "No se pudo exportar las estadísticas.");
+    }
+    const blob = await response.blob();
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      throw new Error("No hay un directorio disponible para guardar el archivo.");
+    }
+    const blobUrl = window.URL.createObjectURL(blob);
+    try {
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      window.URL.revokeObjectURL(blobUrl);
+    }
+    return { uri: url, filename, mimeType };
   }
-  const headers = await authHeader();
-  const result = await downloadAsync(url, `${directory}${filename}`, { headers });
+
+  const directory = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+  if (!directory) {
+    const error: Error & { code?: string } = new Error("No hay un directorio disponible para guardar el archivo.");
+    error.code = "no_local_directory";
+    throw error;
+  }
+  const fileUri = `${directory}${filename}`;
+  const result = await FileSystem.downloadAsync(url, fileUri, { headers });
   return {
     uri: result.uri,
     filename,
-    mimeType: format === "csv" ? "text/csv" : "application/pdf",
+    mimeType,
   };
+}
+
+export async function openAdminStatsExportInBrowser(format: "csv" | "pdf", filters?: AdminStatsFilters): Promise<void> {
+  const url = buildExportUrl(format, filters);
+  const { token } = await resolveAuthHeaders();
+  if (!token) {
+    throw new Error("No se encontró una sesión activa para generar el enlace.");
+  }
+  const connector = url.includes("?") ? "&" : "?";
+  const finalUrl = `${url}${connector}token=${encodeURIComponent(token)}`;
+  try {
+    await WebBrowser.openBrowserAsync(finalUrl, { showInRecents: true });
+  } catch {
+    await Linking.openURL(finalUrl);
+  }
 }
