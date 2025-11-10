@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from math import asin, cos, radians, sin, sqrt
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import logging
 import unicodedata
@@ -25,7 +25,7 @@ from app.schemas_activities import (
     ActivitiesSeedSummary,
     ActivitiesSyncSummary,
 )
-from app.security import get_current_uid, get_current_uid_or_task
+from app.security import get_current_uid, get_current_uid_or_task, require_admin
 from app.services.activities_seed import seed_atemporal_activities
 from app.services.activities_sync_ics import sync_ics_events
 from app.services.activity_reports import (
@@ -147,11 +147,32 @@ def _matches_city(data: dict, city: str) -> bool:
     return False
 
 
+def _actor_from_token(decoded: Optional[Dict[str, object]]) -> Optional[Dict[str, str]]:
+    if not decoded:
+        return None
+
+    actor: Dict[str, str] = {}
+
+    def _assign(key: str, raw: Optional[object]):
+        if isinstance(raw, str):
+            cleaned = raw.strip()
+            if cleaned:
+                actor[key] = cleaned
+
+    uid = decoded.get("uid") or decoded.get("user_id") or decoded.get("sub")  # type: ignore[arg-type]
+    _assign("uid", uid)
+    _assign("email", decoded.get("email"))
+    _assign("name", decoded.get("name"))
+
+    return actor or None
+
+
 def _snapshot_to_activity(snapshot, *, distance_km: Optional[float] = None) -> ActivityOut:
     data = snapshot.to_dict() or {}
 
     date_time = _to_datetime(data.get("dateTime") or data.get("date_time"))
     created_at = _to_datetime(data.get("createdAt") or data.get("created_at"))
+    updated_at = _to_datetime(data.get("updatedAt") or data.get("updated_at"))
     venue = data.get("venue")
 
     payload = {
@@ -164,12 +185,18 @@ def _snapshot_to_activity(snapshot, *, distance_km: Optional[float] = None) -> A
         "link": data.get("link"),
         "origin": data.get("origin"),
         "created_at": created_at or datetime.now(timezone.utc),
+        "updated_at": updated_at,
         "tags": _normalize_tags(data.get("tags")),
     }
     if isinstance(venue, dict):
         payload["venue"] = venue
     if distance_km is not None:
         payload["distance_km"] = round(float(distance_km), 3)
+    for field in ("createdBy", "updatedBy"):
+        actor_data = data.get(field)
+        if isinstance(actor_data, dict):
+            payload_field = "created_by" if field == "createdBy" else "updated_by"
+            payload[payload_field] = actor_data
 
     return ActivityOut.model_validate(payload)
 
@@ -265,15 +292,19 @@ def _report_to_schema(row) -> ActivityReportOut:
 @router.post("", response_model=ActivityOut, status_code=status.HTTP_201_CREATED)
 def create_activity(
     payload: ActivityCreate,
-    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+    admin_claims: dict = Depends(require_admin),  # noqa: ARG001 - asegura privilegios
 ):
     doc_ref = _collection().document()
     data = payload.model_dump(by_alias=True, exclude_none=True)
-    data.update({
+    actor = _actor_from_token(admin_claims)
+    metadata: Dict[str, object] = {
         "createdAt": firestore.SERVER_TIMESTAMP,
         "updatedAt": firestore.SERVER_TIMESTAMP,
-    })
-    doc_ref.set(data)
+    }
+    if actor:
+        metadata["createdBy"] = actor
+        metadata["updatedBy"] = actor
+    doc_ref.set({**data, **metadata})
     snapshot = doc_ref.get()
     if not snapshot.exists:
         raise HTTPException(status_code=500, detail="No se pudo guardar la actividad")
@@ -756,7 +787,7 @@ def get_activity(
 def update_activity(
     activity_id: str,
     payload: ActivityUpdate,
-    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+    admin_claims: dict = Depends(require_admin),  # noqa: ARG001 - asegura privilegios
 ):
     doc_ref = _collection().document(activity_id)
     snapshot = doc_ref.get()
@@ -768,6 +799,9 @@ def update_activity(
         raise HTTPException(status_code=400, detail="Debes enviar al menos un campo para actualizar")
 
     update_data["updatedAt"] = firestore.SERVER_TIMESTAMP
+    actor = _actor_from_token(admin_claims)
+    if actor:
+        update_data["updatedBy"] = actor
     doc_ref.update(update_data)
 
     snapshot = doc_ref.get()
@@ -779,7 +813,7 @@ def update_activity(
 @router.delete("/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_activity(
     activity_id: str,
-    uid: str = Depends(get_current_uid),  # noqa: ARG001 - asegura token válido
+    _admin_claims: dict = Depends(require_admin),  # noqa: ARG001 - asegura privilegios
 ):
     doc_ref = _collection().document(activity_id)
     snapshot = doc_ref.get()

@@ -39,6 +39,27 @@ class ActivityVenue(BaseModel):
     }
 
 
+class ActivityAuditInfo(BaseModel):
+    uid: Optional[str] = Field(default=None, max_length=120)
+    email: Optional[str] = Field(default=None, max_length=255)
+    name: Optional[str] = Field(default=None, max_length=255)
+
+    @field_validator("uid", "email", "name", mode="before")
+    @classmethod
+    def _trim_actor_fields(cls, value: object) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        return str(value)
+
+    model_config = {
+        "extra": "forbid",
+        "populate_by_name": True,
+    }
+
+
 class ActivityBase(BaseModel):
     type: str = Field(..., min_length=1, max_length=50)
     title: str = Field(..., min_length=1, max_length=255)
@@ -184,7 +205,10 @@ class ActivityUpdate(BaseModel):
 class ActivityOut(ActivityBase):
     id: str
     created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: Optional[datetime] = Field(default=None, serialization_alias="updatedAt")
     distance_km: Optional[float] = Field(default=None, serialization_alias="distanceKm")
+    created_by: Optional[ActivityAuditInfo] = Field(default=None, serialization_alias="createdBy")
+    updated_by: Optional[ActivityAuditInfo] = Field(default=None, serialization_alias="updatedBy")
 
     model_config = {
         "from_attributes": True,
